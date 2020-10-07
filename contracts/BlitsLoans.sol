@@ -1,6 +1,6 @@
  pragma solidity ^0.6.0;
-import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/math/SafeMath.sol';
-import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol';
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Administration {
     // --- Data ---
@@ -74,7 +74,7 @@ contract BlitsLoans is Administration {
     uint256 public acceptExpirationPeriod = 259200; // 3 days
     
     // --- Loans Data ---
-    mapping(uint256 => Loan) public loans;
+    mapping(uint256 => Loan) loans;
     uint256 public loanIdCounter;
     mapping(address => uint256[]) userLoans;
     
@@ -180,7 +180,7 @@ contract BlitsLoans is Administration {
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "BlitsLoans/invalid-principal-amount");
         require(assetTypes[_contractAddress].enabled == 1, "BlitsLoans/asset-type-disabled");
-        require(_principal <= assetTypes[_contractAddress].maxLoanAmount && _principal >= assetTypes[_contractAddress].minLoanAmount, "BlitsLoans/invalid-principal-amount");
+        require(_principal <= assetTypes[_contractAddress].maxLoanAmount && _principal >= assetTypes[_contractAddress].minLoanAmount, "BlitsLoans/invalid-principal-range");
         
         // Check allowance
         ERC20 token = ERC20(_contractAddress);
@@ -527,7 +527,7 @@ contract BlitsLoans is Administration {
     function addAssetType(address _contractAddress, uint256 _maxLoanAmount, uint256 _minLoanAmount, uint256 _baseRatePerYear, uint256 _multiplierPerYear) external isAuthorized contractIsEnabled {
         require(_maxLoanAmount > 0, "BlitsLoans/invalid-maxLoanAmount");
         require(_minLoanAmount > 0, "BlitsLoans/invalid-minLoanAmount");
-        require(assetTypes[_contractAddress].minLoanAmount > 0, "BlitsLoans/assetType-already-exists");
+        require(assetTypes[_contractAddress].minLoanAmount == 0, "BlitsLoans/assetType-already-exists");
         
         assetTypes[_contractAddress] = AssetType({
             contractAddress: _contractAddress,
