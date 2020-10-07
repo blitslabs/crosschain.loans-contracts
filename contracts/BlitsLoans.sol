@@ -4,6 +4,23 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract BlitsLoans {
     using SafeMath for uint256;
+    
+    mapping(uint256 => Loan) loans;
+    uint256 loanIdCounter;
+    
+    // Global settings
+    address owner;
+    bool contractIsActive = false;
+    uint256 approveExpirationIncrement =  21600; // 6 hours
+    uint256 loanExpirationIncrement = 2592000; // 30 days
+    uint256 acceptExpirationIncrement = 259200; // 3 days    
+    
+    uint256 baseRatePerPeriod;
+    uint256 multiplierPerPeriod;
+    uint256 secondsPerYear = 31556952;
+    
+    uint256 cash = 0;
+    uint256 borrows = 0;
 
     enum State {
         Open,
@@ -42,23 +59,77 @@ contract BlitsLoans {
         ERC20 token;
     }
 
-    mapping(uint256 => Loan) loans;
+    constructor() public {
+        owner = msg.sender;
+    }
 
-    uint256 loanIdCounter;
+    modifier onlyOwner {
+        require(msg.sender == owner, 'Not owner');
+        _;
+    }
 
-    // Create new loan
+    modifier isActive {
+        require(contractIsActive == true, 'Contract is paused');
+        _;
+    }
+
+    function setGlobalVariables(
+        uint256 _baseRatePerYear, 
+        uint256 _multiplierPerYear, 
+        uint256 _approveExpirationIncrement,
+        uint256 _loanExpirationIncrement,
+        uint256 _acceptExpirationIncrement,
+        bool _contractIsActive
+    ) public onlyOwner {
+        uint256 baseRatePerSecond = _baseRatePerYear.div(secondsPerYear);
+        uint256 multiplierPerSecond = _multiplierPerYear.div(secondsPerYear);
+        baseRatePerPeriod = loanExpirationIncrement.mul(baseRatePerSecond);
+        multiplierPerPeriod = loanExpirationIncrement.mul(multiplierPerSecond);
+        approveExpirationIncrement = _approveExpirationIncrement;
+        loanExpirationIncrement = _loanExpirationIncrement;
+        acceptExpirationIncrement = _acceptExpirationIncrement;
+        contractIsActive = _contractIsActive;
+    }
+    
+    function utilizationRate(uint256 _cash, uint256 _borrows) public pure returns (uint256) {
+        if(_borrows == 0) {
+            return 0;
+        }
+        
+        return _borrows.mul(1e18).div(_cash.add(_borrows));
+    }
+    
+    function getInterestRate() public view returns(uint256) {
+        uint256 ur = utilizationRate(cash, borrows);
+        return ur.mul(multiplierPerPeriod).div(1e18).add(baseRatePerPeriod);
+    }
+
+    
     function createLoan(
         // actors
         address _lenderAuto,
         // secret Hashes
         bytes32 _secretHashB1,
         bytes32 _secretHashAutoB1,
-        uint256[3] memory _expirations,
         // loan details
         uint256 _principal,
-        uint256 _interest,
         address _tokenAdress
-    ) public returns (uint256 loanId) {
+    ) public isActive returns (uint256 loanId) {
+        
+        require(_principal > 0, "Enter a valid principal amount");
+        
+        // Check allowance
+        ERC20 token = ERC20(_tokenAdress);
+        uint256 allowance = token.allowance(msg.sender, address(this));
+        require(allowance >= _principal, "Check the token allowance");
+        
+        // Transfer Token
+        token.transferFrom(
+            msg.sender,
+            address(this),
+            _principal
+        );
+        
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
 
@@ -73,19 +144,41 @@ contract BlitsLoans {
             secretA1: "",
             secretB1: "",
             secretAutoB1: "", // Expiration dates
-            approveExpiration: _expirations[0],
-            loanExpiration: _expirations[1],
-            acceptExpiration: _expirations[2], // Loan details
+            approveExpiration: now.add(approveExpirationIncrement),
+            loanExpiration: now.add(loanExpirationIncrement),
+            acceptExpiration: now.add(acceptExpirationIncrement), // Loan details
             principal: _principal,
-            interest: _interest,
-            token: ERC20(_tokenAdress), // Loan state
-            state: State.Open
+            interest: _principal.mul(getInterestRate()).div(1e18),
+            token: token, // Loan state
+            state: State.Funded
         });
+        
+        // Increase cash
+        cash = cash.add(_principal);
 
         // Emit event
         emit LoanCreated(loanIdCounter);
 
         return loanIdCounter;
+    }
+    
+    function getContractData() public view returns 
+    (
+        uint256 _loanIdCounter,
+        bool _contractIsActive,
+        uint256[3] memory _expirationIncrements,
+        uint256 _baseRatePerPeriod,
+        uint256 _multiplierPerPeriod,
+        uint256 _cash,
+        uint256 _borrows
+    ) {
+        _loanIdCounter = loanIdCounter;
+        _contractIsActive = contractIsActive;
+        _expirationIncrements = [approveExpirationIncrement,loanExpirationIncrement,acceptExpirationIncrement];
+        _baseRatePerPeriod = baseRatePerPeriod;
+        _multiplierPerPeriod = multiplierPerPeriod;
+        _cash = cash;
+        _borrows = borrows;
     }
 
     function fetchLoan(uint256 _loanId)
@@ -125,32 +218,8 @@ contract BlitsLoans {
         details = [loans[_loanId].principal, loans[_loanId].interest];
         token = loans[_loanId].token;
     }
+    
 
-    function getBytes32ArrayForInput()
-        public
-        pure
-        returns (bytes32[2] memory b32Arr)
-    {
-        b32Arr = [bytes32("candidate1"), bytes32("c2")];
-    }
-
-    // Fund loan
-    function fund(uint256 _loanId) public {
-        require(loans[_loanId].state == State.Open);
-        loans[_loanId].token.transferFrom(
-            msg.sender,
-            address(this),
-            loans[_loanId].principal
-        );
-        loans[_loanId].state = State.Funded;
-        emit LoanFunded(
-            _loanId,
-            loans[_loanId].principal,
-            loans[_loanId].state
-        );
-    }
-
-    // Approve loan
     function setBorrowerAndApprove(
         uint256 _loanId,
         address payable _borrower,
@@ -173,8 +242,6 @@ contract BlitsLoans {
         );
     }
 
-    // Withdraw loan
-    // secretB1 is not necessary because we are checking state == 'approved'
     function withdraw(uint256 _loanId, bytes32 _secretA1) public {
         require(loans[_loanId].state == State.Approved);
         require(
@@ -182,10 +249,14 @@ contract BlitsLoans {
         );
         loans[_loanId].state = State.Withdrawn;
         loans[_loanId].secretA1 = _secretA1;
+        
         loans[_loanId].token.transfer(
             loans[_loanId].borrower,
             loans[_loanId].principal
         );
+        
+        borrows = borrows.add(loans[_loanId].principal);
+        
         emit LoanPrincipalWithdrawn(
             _loanId,
             loans[_loanId].borrower,
@@ -194,10 +265,6 @@ contract BlitsLoans {
             loans[_loanId].state
         );
     }
-
-    // Accept Repayment or cancel
-    // secretB2 es secretB1 ya que no hay secretB1 utilizado en `approve`
-    // separa accept y cancel para controlar correctamente el estado
 
     function acceptRepayment(uint256 _loanId, bytes32 _secretB1) public {
         require(
@@ -215,8 +282,7 @@ contract BlitsLoans {
             loans[_loanId].state == State.Repaid,
             "The loan has not been repaid"
         );
-
-        // TO-DO: enviar cantidad correcta = principal + interest
+        
         loans[_loanId].state = State.Closed;
         uint256 repayment = loans[_loanId].principal.add(
             loans[_loanId].interest
@@ -225,11 +291,6 @@ contract BlitsLoans {
 
         emit LoanRepaymentAccepted(_loanId, repayment, loans[_loanId].state);
     }
-
-    // La version de atomic loans tinene una posible vulnerabilidad que permite
-    // a `lender` cancelar el prestamo aunque `borrower` retirado el principal
-    // Revisar si unicamente se permitira cancelar antes de ser aprovado, o aun cuando
-    // no se haya retirado el principal por parte de Alice
 
     function cancelLoanBeforePrincipalWithdraw(
         uint256 _loanId,
@@ -250,16 +311,15 @@ contract BlitsLoans {
         loans[_loanId].state = State.Canceled;
         uint256 principal = loans[_loanId].principal;
         loans[_loanId].principal = 0;
+        cash = cash.sub(principal);
         loans[_loanId].token.transfer(loans[_loanId].lender, principal);
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }
 
-    // TO-DO
-    // Only allow to repay the exact amount
     function payback(uint256 _loanId) public {
         require(loans[_loanId].state == State.Withdrawn);
         require(now <= loans[_loanId].loanExpiration);
-        // require(msg.sender == loans[_loanId].borrower);
+        
         uint256 repayment = loans[_loanId].principal.add(
             loans[_loanId].interest
         );
@@ -277,8 +337,6 @@ contract BlitsLoans {
         );
     }
 
-    // TO-DO
-    // Only allow to refund payback that was actually paid, not the principal and interest (if it was a different amount)
     function refundPayback(uint256 _loanId) public {
         require(now > loans[_loanId].acceptExpiration);
         require(loans[_loanId].state == State.Repaid);
@@ -327,3 +385,4 @@ contract BlitsLoans {
         State state
     );
 }
+
