@@ -1,4 +1,4 @@
- pragma solidity ^0.6.0;
+pragma solidity ^0.6.0;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
@@ -232,69 +232,6 @@ contract BlitsLoans is Administration {
     }
     
     /**
-     * @notice Get information about an Asset Type
-     * @param contractAddress The contract address of the given asset
-     */
-    function getAssetType(address _contractAddress) public view returns
-    (
-        uint256 maxLoanAmount,
-        uint256 minLoanAmount,
-        uint256 supply,
-        uint256 demand,
-        uint256 baseRatePerPeriod,
-        uint256 multiplierPerPeriod,
-        uint enabled,
-        address contractAddress
-    ) {
-        maxLoanAmount = assetTypes[_contractAddress].maxLoanAmount;
-        minLoanAmount = assetTypes[_contractAddress].minLoanAmount;
-        supply = assetTypes[_contractAddress].supply;
-        demand = assetTypes[_contractAddress].demand;
-        baseRatePerPeriod = assetTypes[_contractAddress].baseRatePerPeriod;
-        multiplierPerPeriod = assetTypes[_contractAddress].multiplierPerPeriod;
-        enabled = assetTypes[_contractAddress].enabled;
-        contractAddress = assetTypes[_contractAddress].contractAddress;
-    }
-    
-    /**
-     * @notice Get information about a loan
-     * @param _loanId The ID of the loan
-     */
-    function fetchLoan(uint256 _loanId) public view 
-    returns(
-        address[3] memory actors,
-        bytes32[3] memory secretHashes,
-        bytes32[3] memory secrets,
-        uint256[2] memory expirations,
-        uint256[2] memory details,
-        State state,
-        address contractAddress
-    ){
-        actors = [
-            loans[_loanId].borrower,
-            loans[_loanId].lender,
-            loans[_loanId].lenderAuto
-        ];
-        secretHashes = [
-            loans[_loanId].secretHashA1,
-            loans[_loanId].secretHashB1,
-            loans[_loanId].secretHashAutoB1
-        ];
-        secrets = [
-            loans[_loanId].secretA1,
-            loans[_loanId].secretB1,
-            loans[_loanId].secretAutoB1
-        ];
-        expirations = [
-            loans[_loanId].loanExpiration,
-            loans[_loanId].acceptExpiration
-        ];
-        state = loans[_loanId].state;
-        details = [loans[_loanId].principal, loans[_loanId].interest];
-        contractAddress = loans[_loanId].contractAddress;
-    }
-    
-    /**
      * @notice Set borrower and approve loan
      * @param _loanId The ID of the loan
      * @param _borrower Borrower's address
@@ -470,6 +407,77 @@ contract BlitsLoans is Administration {
             refund,
             loans[_loanId].state
         );
+    }
+    
+    /**
+     * @notice Get information about an Asset Type
+     * @param contractAddress The contract address of the given asset
+     */
+    function getAssetType(address _contractAddress) public view returns
+    (
+        uint256 maxLoanAmount,
+        uint256 minLoanAmount,
+        uint256 supply,
+        uint256 demand,
+        uint256 baseRatePerPeriod,
+        uint256 multiplierPerPeriod,
+        uint enabled,
+        address contractAddress
+    ) {
+        maxLoanAmount = assetTypes[_contractAddress].maxLoanAmount;
+        minLoanAmount = assetTypes[_contractAddress].minLoanAmount;
+        supply = assetTypes[_contractAddress].supply;
+        demand = assetTypes[_contractAddress].demand;
+        baseRatePerPeriod = assetTypes[_contractAddress].baseRatePerPeriod;
+        multiplierPerPeriod = assetTypes[_contractAddress].multiplierPerPeriod;
+        enabled = assetTypes[_contractAddress].enabled;
+        contractAddress = assetTypes[_contractAddress].contractAddress;
+    }
+    
+    /**
+     * @notice Get information about a loan
+     * @param _loanId The ID of the loan
+     */
+    function fetchLoan(uint256 _loanId) public view 
+    returns(
+        address[3] memory actors,
+        bytes32[3] memory secretHashes,
+        bytes32[3] memory secrets,
+        uint256[2] memory expirations,
+        uint256[2] memory details,
+        State state,
+        address contractAddress
+    ){
+        actors = [
+            loans[_loanId].borrower,
+            loans[_loanId].lender,
+            loans[_loanId].lenderAuto
+        ];
+        secretHashes = [
+            loans[_loanId].secretHashA1,
+            loans[_loanId].secretHashB1,
+            loans[_loanId].secretHashAutoB1
+        ];
+        secrets = [
+            loans[_loanId].secretA1,
+            loans[_loanId].secretB1,
+            loans[_loanId].secretAutoB1
+        ];
+        expirations = [
+            loans[_loanId].loanExpiration,
+            loans[_loanId].acceptExpiration
+        ];
+        state = loans[_loanId].state;
+        details = [loans[_loanId].principal, loans[_loanId].interest];
+        contractAddress = loans[_loanId].contractAddress;
+    }
+    
+    /**
+     * @notice Get Account loans
+     * @param _account The user account
+     */
+    function getAccountLoans(address _account) public view returns (uint256[] memory){
+        return userLoans[_account];
     }
     
     /**
