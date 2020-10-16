@@ -94,6 +94,8 @@ contract BlitsLoans is Administration {
         address payable borrower;
         address payable lender;
         address lenderAuto;
+        // Seize collateral address
+        bytes32 aCoinLenderAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -176,7 +178,8 @@ contract BlitsLoans is Administration {
         bytes32 _secretHashAutoB1,
         // loan details
         uint256 _principal,
-        address _contractAddress
+        address _contractAddress,
+        bytes32 _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "BlitsLoans/invalid-principal-amount");
         require(assetTypes[_contractAddress].enabled == 1, "BlitsLoans/asset-type-disabled");
@@ -203,6 +206,7 @@ contract BlitsLoans is Administration {
             borrower: address(0),
             lender: msg.sender,
             lenderAuto: _lenderAuto,
+            aCoinLenderAddress: _aCoinLenderAddress,
             // Secret Hashes
             secretHashA1: "",
             secretHashB1: _secretHashB1,
@@ -445,6 +449,7 @@ contract BlitsLoans is Administration {
         bytes32[3] memory secrets,
         uint256[2] memory expirations,
         uint256[2] memory details,
+        bytes32 aCoinLenderAddress,
         State state,
         address contractAddress
     ){
@@ -467,6 +472,7 @@ contract BlitsLoans is Administration {
             loans[_loanId].loanExpiration,
             loans[_loanId].acceptExpiration
         ];
+        aCoinLenderAddress = loans[_loanId].aCoinLenderAddress;
         state = loans[_loanId].state;
         details = [loans[_loanId].principal, loans[_loanId].interest];
         contractAddress = loans[_loanId].contractAddress;
@@ -537,13 +543,16 @@ contract BlitsLoans is Administration {
         require(_minLoanAmount > 0, "BlitsLoans/invalid-minLoanAmount");
         require(assetTypes[_contractAddress].minLoanAmount == 0, "BlitsLoans/assetType-already-exists");
         
+        uint256 baseRatePerSecond = _baseRatePerYear.div(secondsPerYear);
+        uint256 multiplierPerSecond = _multiplierPerYear.div(secondsPerYear);
+        
         assetTypes[_contractAddress] = AssetType({
             contractAddress: _contractAddress,
             token: ERC20(_contractAddress),
             maxLoanAmount: _maxLoanAmount,
             minLoanAmount: _minLoanAmount,
-            baseRatePerPeriod: _baseRatePerYear.mul(1e18).div(secondsPerYear),
-            multiplierPerPeriod: _multiplierPerYear.mul(1e18).div(secondsPerYear),
+            baseRatePerPeriod: loanExpirationPeriod.mul(baseRatePerSecond),
+            multiplierPerPeriod: loanExpirationPeriod.mul(multiplierPerSecond),
             enabled: 1,
             supply: 0,
             demand: 0
