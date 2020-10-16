@@ -94,7 +94,7 @@ contract BlitsLoans is Administration {
         address payable borrower;
         address payable lender;
         address lenderAuto;
-        // Seize collateral address
+        // Lender's aCoin address
         bytes32 aCoinLenderAddress;
         // Hashes
         bytes32 secretHashA1;
@@ -543,16 +543,13 @@ contract BlitsLoans is Administration {
         require(_minLoanAmount > 0, "BlitsLoans/invalid-minLoanAmount");
         require(assetTypes[_contractAddress].minLoanAmount == 0, "BlitsLoans/assetType-already-exists");
         
-        uint256 baseRatePerSecond = _baseRatePerYear.div(secondsPerYear);
-        uint256 multiplierPerSecond = _multiplierPerYear.div(secondsPerYear);
-        
         assetTypes[_contractAddress] = AssetType({
             contractAddress: _contractAddress,
             token: ERC20(_contractAddress),
             maxLoanAmount: _maxLoanAmount,
             minLoanAmount: _minLoanAmount,
-            baseRatePerPeriod: loanExpirationPeriod.mul(baseRatePerSecond),
-            multiplierPerPeriod: loanExpirationPeriod.mul(multiplierPerSecond),
+            baseRatePerPeriod: _baseRatePerYear.mul(1e18).div(secondsPerYear),
+            multiplierPerPeriod: _multiplierPerYear.mul(1e18).div(secondsPerYear),
             enabled: 1,
             supply: 0,
             demand: 0
