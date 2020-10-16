@@ -2,50 +2,160 @@ pragma solidity ^0.6.0;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
-contract HarmonyLock {
+contract Administration {
+    // --- Data ---
+    uint contractEnabled = 0;
+    
+    // --- Auth ---
+    mapping(address => uint) public authorizedAccounts;
+    
+    /**
+     * @notice Add auth to an account
+     * @param account Account to add auth to
+     */
+    function addAuthorization(address account) external isAuthorized contractIsEnabled {
+        authorizedAccounts[account] = 1;
+        emit AddAuthorization(account);
+    }
+    
+    /**
+     * @notice Remove auth from an account
+     * @param account Account to add auth to
+     */
+    function removeAuthorization(address account) external isAuthorized contractIsEnabled {
+        authorizedAccounts[account] = 0;
+        emit RemoveAuthorization(account);
+    }
+    
+    /**
+     * @notice Checks whether msg.sender can call an authed function
+     */
+    modifier isAuthorized {
+        require(authorizedAccounts[msg.sender] == 1, "BlitsLoans/account-not-authorized");
+        _;
+    }
+    
+    /**
+     * @notice Checks whether the contract is enabled
+     */
+    modifier contractIsEnabled {
+        require(contractEnabled == 1, "BlitsLoans/contract-not-enabled");
+        _;
+    }
+    
+    // --- Administration ---
+    
+    function enableContract() external isAuthorized {
+        contractEnabled = 1;
+        emit EnableContract();
+    }
+    
+    /**
+     * @notice Disable this contract
+     */
+    function disableContract() external isAuthorized {
+        contractEnabled = 0;
+        emit DisableContract();
+    }
+    
+    // --- Events ---
+    event AddAuthorization(address account);
+    event RemoveAuthorization(address account);
+    event EnableContract();
+    event DisableContract();
+}
+
+interface AggregatorInterface {
+  function latestAnswer() external view returns (int256);
+  function latestTimestamp() external view returns (uint256);
+  function latestRound() external view returns (uint256);
+  function getAnswer(uint256 roundId) external view returns (int256);
+  function getTimestamp(uint256 roundId) external view returns (uint256);
+
+  event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 timestamp);
+  event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
+}
+
+contract CollateralLock is Administration {
     using SafeMath for uint256;
-
-    enum State {Locked, Closed}
-
+    
+    // --- Data ---
+    uint256 public loanExpirationPeriod = 2851200; //  33 days
+    uint256 public seizureExpirationPeriod = 3110400; // 36 days
+    uint256 public collateralizationRatio = 150e18; // 150%
+    
+    // Oracle
+    AggregatorInterface internal priceFeed = AggregatorInterface(0x05d511aAfc16c7c12E60a2Ec4DbaF267eA72D420);
+            
+    // --- Loans Data ---
+    mapping(uint256 => Loan) loans;
+    uint256 public loanIdCounter;
+    mapping(address => uint256[]) userLoans;
+    
+    enum State {
+        Locked,
+        Closed
+    }
+    
     struct Loan {
+        // Actors
         address payable borrower;
         address payable lender;
+        // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
         bytes32 secretHashAutoA1;
         bytes32 secretHashAutoB1;
+        // Secrets
         bytes32 secretA1;
         bytes32 secretB1;
+        // Expirations
         uint256 loanExpiration;
         uint256 seizureExpiration;
-        uint256 seizableCollateral;
-        uint256 refundableCollateral;
-        uint256 cRatio;
+        uint256 createdAt;
+        // Loan Details
+        uint256 collateral;
+        uint256 lockPrice;
+        uint256 liquidationPrice;
+        uint256 collateralValue;
+        // Loan State
         State state;
     }
-
-    uint256 public loanCounter = 0;
-    mapping(uint256 => Loan) loans;
-
+    
+    // --- Init ---
+    constructor() public {
+        contractEnabled = 1;
+        authorizedAccounts[msg.sender] = 1;
+        emit AddAuthorization(msg.sender);
+    }
+    
+    /**
+     * @notice Lock loan's collateral
+     * @param _lender Lender's address on the collateral's blockchain
+     * @param _secretHashA1 secretA1's hash
+     * @param _secretHashB1 secretB1's hash
+     * @param _secretHashAutoA1 secretAutoA1's hash
+     * @param _secretHashAutoB1 secretAutoB1's hash
+     */
     function lockCollateral(
         address payable _lender,
         bytes32 _secretHashA1,
         bytes32 _secretHashB1,
         bytes32 _secretHashAutoA1,
-        bytes32 _secretHashAutoB1,
-        uint256 _loanExpiration,
-        uint256 _seizureExpiration,
-        uint256 _collateralizationRatio
+        bytes32 _secretHashAutoB1
     ) public payable {
-        require(_collateralizationRatio <= 1000 && _collateralizationRatio >= 100);
-
-        loanCounter = loanCounter + 1;
-        uint256 baseRatio = 100;
-        uint256 amount = msg.value;
-        uint256 seizableCollateral = baseRatio.mul(amount).div(_collateralizationRatio);
-        uint256 refundableCollateral = amount.sub(seizableCollateral);
-
-        loans[loanCounter] = Loan({
+        require(msg.value > 0, "BlitsLock/invalid-collateral-amount");
+        loanIdCounter = loanIdCounter + 1;
+        
+        // Add loanId to users
+        userLoans[msg.sender].push(loanIdCounter);
+        userLoans[_lender].push(loanIdCounter);
+        
+        uint256 baseCollateral = msg.value.mul(100e18).div(collateralizationRatio);
+        uint256 latestPrice = uint256(priceFeed.latestAnswer()).mul(1e10);
+        uint256 collateralValue = baseCollateral.mul(latestPrice);
+        
+        loans[loanIdCounter] = Loan({
             borrower: msg.sender,
             lender: _lender,
             secretHashA1: _secretHashA1,
@@ -54,187 +164,188 @@ contract HarmonyLock {
             secretHashAutoB1: _secretHashAutoB1,
             secretA1: "",
             secretB1: "",
-            loanExpiration: _loanExpiration,
-            seizureExpiration: _seizureExpiration,
-            seizableCollateral: seizableCollateral,
-            refundableCollateral: refundableCollateral,
-            cRatio: _collateralizationRatio,
+            loanExpiration: now.add(loanExpirationPeriod),
+            seizureExpiration: now.add(seizureExpirationPeriod),
+            createdAt: now,
+            collateral: msg.value,
+            lockPrice: latestPrice,
+            liquidationPrice: latestPrice,
+            collateralValue: collateralValue,
             state: State.Locked
         });
     }
-
-    function fetchLoan(uint256 _loanId)
-        public
-        view
-        returns (
-            address payable[2] memory actors,
-            bytes32[4] memory secretHashes,
-            bytes32[2] memory secrets,
-            uint256[2] memory expirations,
-            uint256[3] memory details,
-            State state
-        )
-    {
-        actors = [loans[_loanId].borrower, loans[_loanId].lender];
+    
+    /**
+     * @notice Used when the Lender accepts repayment or cancels the loan
+     * @param _loanId The ID of the loan
+     * @param _secretB1 Lender's secretB1
+     */
+    function unlockCollateralAndCloseLoan(uint256 _loanId, bytes32 _secretB1) public {
+        require(loans[_loanId].state == State.Locked, "BlitsLock/collateral-not-locked");
+        require(now <= loans[_loanId].loanExpiration, "BlitsLock/loan-period-expired");
+        require(
+            sha256(abi.encodePacked(_secretB1)) == loans[_loanId].secretHashB1,
+            "BlitsLock/invalid-secretB1"
+        );
+        require(loans[_loanId].collateral > 0, "BlitsLock/invalid-collateral-amount");
+        
+        // Change loan's state
+        loans[_loanId].state = State.Closed;
+        
+        // Update collateral amount
+        uint256 collateral = loans[_loanId].collateral;
+        loans[_loanId].collateral = 0;
+        
+        // Refund total collateral to borrower
+        loans[_loanId].borrower.transfer(collateral);
+        
+        emit UnlockAndClose(
+            _loanId,
+            loans[_loanId].borrower,
+            collateral
+        );
+    }
+    
+    /**
+     * @notice Can only be used by the lender to seize part of the collaeral if he has secretA1
+     * @param _loanId The ID of the loan
+     * @param _secretA1 Borrower's secretA1
+     */
+    function seizeCollateral(uint256 _loanId, bytes32 _secretA1) public {
+        require(
+            sha256(abi.encodePacked(_secretA1)) ==
+                loans[_loanId].secretHashA1
+        );
+        require(now > loans[_loanId].loanExpiration, "BlitsLock/loan-period-active");
+        require(now <= loans[_loanId].seizureExpiration, "BlitsLock/seizure-period-expired");
+        require(loans[_loanId].state == State.Locked, "BlitsLock/collateral-not-locked");
+        require(loans[_loanId].collateral > 0, "BlitsLock/invalid-collateral-amount");
+        
+        // Get latestPrice
+        uint256 latestPrice = uint256(priceFeed.latestAnswer()).mul(1e10);
+        uint256 seizableCollateral = loans[_loanId].collateralValue.div(latestPrice);
+        
+        // Update liquidation price
+        loans[_loanId].liquidationPrice = latestPrice;
+        
+        if(seizableCollateral > loans[_loanId].collateral) {
+            seizableCollateral = loans[_loanId].collateral;
+        }
+        
+        // Substract seizable collateral
+        loans[_loanId].collateral = loans[_loanId].collateral.sub(seizableCollateral);
+        
+        // Close loan if there's no collateral left
+        if(loans[_loanId].collateral == 0) {
+            loans[_loanId].state = State.Closed;
+        }
+        
+        // Refund seized collateral to lender
+        loans[_loanId].lender.transfer(seizableCollateral);
+        emit SeizeCollateral(_loanId, loans[_loanId].lender, seizableCollateral);
+    }
+    
+    /**
+     * @notice Unclock refundable collateral after seizure period
+     * @param _loanId The ID of the loan
+     */
+    function unlockRefundableCollateral(uint256 _loanId) public {
+        require(now > loans[_loanId].seizureExpiration, "BlitsLock/seizure-period-not-expired");
+        require(loans[_loanId].state == State.Locked, "BlitsLock/collateral-not-locked");
+        require(loans[_loanId].collateral > 0, "BlitsLock/invalid-collateral-amount");
+        
+        uint256 collateral = loans[_loanId].collateral;
+        
+        // Zero collateral amount
+        loans[_loanId].collateral = 0;
+        
+        // Close loan
+        if(loans[_loanId].collateral == 0) {
+            loans[_loanId].state = State.Closed;
+        }
+        
+        // Refund collateral to borrower
+        loans[_loanId].borrower.transfer(collateral);
+        
+        emit UnlockRefundableCollateral(
+            _loanId,
+            loans[_loanId].borrower,
+            collateral
+        );
+    }
+    
+    /**
+     * @notice Get information about a loan
+     * @param _loanId The ID of the loan
+     */
+    function fetchLoan(uint256 _loanId) public view
+    returns (
+        address[2] memory actors,
+        bytes32[2] memory secretHashes,
+        bytes32[2] memory secrets,
+        uint256[2] memory expirations,
+        uint256[4] memory details,
+        State state
+    ) {
+        actors = [
+            address(loans[_loanId].borrower),
+            address(loans[_loanId].lender)
+        ];
         secretHashes = [
             loans[_loanId].secretHashA1,
-            loans[_loanId].secretHashB1,
-            loans[_loanId].secretHashAutoA1,
-            loans[_loanId].secretHashAutoB1
+            loans[_loanId].secretHashB1
         ];
-        secrets = [loans[_loanId].secretA1, loans[_loanId].secretB1];
+        secrets = [
+            loans[_loanId].secretA1,
+            loans[_loanId].secretB1
+        ];
         expirations = [
             loans[_loanId].loanExpiration,
             loans[_loanId].seizureExpiration
         ];
-        state = loans[_loanId].state;
         details = [
-            loans[_loanId].seizableCollateral,
-            loans[_loanId].refundableCollateral,
-            loans[_loanId].cRatio
+            loans[_loanId].collateral,
+            loans[_loanId].collateralValue,
+            loans[_loanId].lockPrice,
+            loans[_loanId].liquidationPrice
         ];
+        state = loans[_loanId].state;
     }
-
-    // If the lender is not satisfied with the collateral locked by the borrower, then the lender
-    // can refund their loan amount by revealing secretB2, which will subsequently allow the borrower
-    // to refund the collateral amount they deposited
-    // Borrower can refund when the Loan repayment is accepted or the loan is cancelled (before Alice withdraws the principal)
-
-    // Withdraw Pattern
-    // https://solidity.readthedocs.io/en/develop/common-patterns.html#withdrawal-from-contracts
-
-    // Refund Collateral function
-    // https://github.com/AtomicLoans/chainabstractionlayer/blob/dev/packages/bitcoin-collateral-provider/lib/BitcoinCollateralProvider.js#L246
-
-    // Durante `loanPeriod` y seizurePeriod && seizable => se require secretoB2?
-    // Si es 'seizurePeriod' && 'requiresSecret' ? se envia a Lender : se envia a Borrower
-
-    // secretA2 or secretB2
-
-    // Used when the Lender Accepts repayment or Cancels the loan
-    function unlockCollateralAndCloseLoan(uint256 _loanId, bytes32 _secretB1)
-        public
-    {
-        require(loans[_loanId].state == State.Locked);
-        require(now <= loans[_loanId].loanExpiration);
-        require(
-            sha256(abi.encodePacked(_secretB1)) == loans[_loanId].secretHashB1
-        );
-
-        // Change loan's state
-        loans[_loanId].state = State.Closed;
-
-        // Zero collateral amount
-        uint256 tCollateral = loans[_loanId].seizableCollateral.add(
-            loans[_loanId].refundableCollateral
-        );
-        loans[_loanId].seizableCollateral = 0;
-        loans[_loanId].refundableCollateral = 0;
-
-        // Refund the entire collateral to the borrower
-        loans[_loanId].borrower.transfer(tCollateral);
-
-        // Emit unlockCollateralAndCloseLoan event
-        emit UnlockAndClose(
-            _loanId,
-            loans[_loanId].borrower,
-            loans[_loanId].seizureExpiration,
-            loans[_loanId].refundableCollateral
-        );
+    
+    /**
+     * @notice Get Account loans
+     * @param _account User account
+     */
+    function getAccountLoans(address _account) public view returns(uint256[] memory) {
+        return userLoans[_account];
     }
-
-    // Can be used once the loan expires
-    function unlockRefundableCollateral(uint256 _loanId) public {
-        require(now > loans[_loanId].loanExpiration);
-        require(loans[_loanId].state == State.Locked);
-        require(loans[_loanId].refundableCollateral > 0);
-        uint256 rCollateral = loans[_loanId].refundableCollateral;
-        // Zero collateral amount
-        loans[_loanId].refundableCollateral = 0;
-        // Close loan
-        if (loans[_loanId].seizableCollateral == 0) {
-            loans[_loanId].state = State.Closed;
-        }
-        // Refund rCollateral to borrower
-        loans[_loanId].borrower.transfer(rCollateral);
-
-        emit UnlockRefundableCollateral(
-            _loanId,
-            loans[_loanId].borrower,
-            rCollateral
-        );
+    
+    /**
+     * @notice Modify Loan parameters
+     * @param _parameter The name of the parameter modified
+     * @param _data The new value for the parameter
+     */
+    function modifyLoanParameters(bytes32 _parameter, uint256 _data) external isAuthorized contractIsEnabled {
+        require(_data > 0, "BlitsLoans/null-data");
+        if(_parameter == "loanExpirationPeriod") loanExpirationPeriod = _data;
+        else if(_parameter == "seizureExpirationPeriod") seizureExpirationPeriod = _data;
+        else if(_parameter == "collateralizationRatio") collateralizationRatio = _data;
+        else if(_parameter == "priceFeed") priceFeed = AggregatorInterface(_data);
+        else revert("BlitsLoans/modify-unrecognized-param");
+        emit ModifyLoanParameters(_parameter, _data);
     }
-
-    function unlockSeizableCollateral(uint256 _loanId, bytes32 _secretA1)
-        public
-    {
-        require(
-            sha256(abi.encodePacked(_secretA1)) ==
-                loans[_loanId].secretHashA1 ||
-                sha256(abi.encodePacked(_secretA1)) ==
-                loans[_loanId].secretHashAutoA1
-        );
-        require(now > loans[_loanId].loanExpiration);
-        require(now > loans[_loanId].seizureExpiration);
-        require(loans[_loanId].state == State.Locked);
-        require(loans[_loanId].seizableCollateral > 0);
-        uint256 sCollateral = loans[_loanId].seizableCollateral;
-        // Zero collateral amount
-        loans[_loanId].seizableCollateral = 0;
-        // Close Loan
-        if (loans[_loanId].refundableCollateral == 0) {
-            loans[_loanId].state = State.Closed;
-        }
-        //  Refund sCollateral to borrower
-        loans[_loanId].borrower.transfer(sCollateral);
-        emit UnlockSeizableCollateral(
-            _loanId,
-            loans[_loanId].borrower,
-            sCollateral
-        );
-    }
-
-    // This function can only be used by the lender if he has secretA1
-    function seizeCollateral(uint256 _loanId, bytes32 _secretA1) public {
-        require(
-            sha256(abi.encodePacked(_secretA1)) ==
-                loans[_loanId].secretHashA1 ||
-                sha256(abi.encodePacked(_secretA1)) ==
-                loans[_loanId].secretHashAutoA1
-        );
-        require(now > loans[_loanId].loanExpiration);
-        require(now <= loans[_loanId].seizureExpiration);
-        require(loans[_loanId].state == State.Locked);
-        require(loans[_loanId].seizableCollateral > 0);
-        uint256 sCollateral = loans[_loanId].seizableCollateral;
-        // Zero collateral amount
-        loans[_loanId].seizableCollateral = 0;
-        // Close loan
-        if (loans[_loanId].refundableCollateral == 0) {
-            loans[_loanId].state = State.Closed;
-        }
-        // Refund sColltareal to lender
-        loans[_loanId].lender.transfer(sCollateral);
-        emit SeizeCollateral(_loanId, loans[_loanId].lender, sCollateral);
-    }
-
-    // Events
+    
+    // --- Events ---
     event UnlockAndClose(
         uint256 loanId,
         address borrower,
-        uint256 sCollateral,
-        uint256 rCollateral
+        uint256 collateral
     );
-
+    event SeizeCollateral(uint256 loanId, address lender, uint256 amount);
     event UnlockRefundableCollateral(
         uint256 loanId,
         address borrower,
         uint256 amount
     );
-    event UnlockSeizableCollateral(
-        uint256 loanId,
-        address borrower,
-        uint256 amount
-    );
-    event SeizeCollateral(uint256 loanId, address lender, uint256 amount);
+    event ModifyLoanParameters(bytes32 parameter, uint256 data);
 }
