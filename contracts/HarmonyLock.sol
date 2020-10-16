@@ -104,8 +104,6 @@ contract CollateralLock is Administration {
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
-        bytes32 secretHashAutoA1;
-        bytes32 secretHashAutoB1;
         // Secrets
         bytes32 secretA1;
         bytes32 secretB1;
@@ -134,17 +132,17 @@ contract CollateralLock is Administration {
      * @param _lender Lender's address on the collateral's blockchain
      * @param _secretHashA1 secretA1's hash
      * @param _secretHashB1 secretB1's hash
-     * @param _secretHashAutoA1 secretAutoA1's hash
-     * @param _secretHashAutoB1 secretAutoB1's hash
      */
     function lockCollateral(
         address payable _lender,
         bytes32 _secretHashA1,
-        bytes32 _secretHashB1,
-        bytes32 _secretHashAutoA1,
-        bytes32 _secretHashAutoB1
+        bytes32 _secretHashB1
+        
     ) public payable {
         require(msg.value > 0, "BlitsLock/invalid-collateral-amount");
+        int256 latestAnswer = priceFeed.latestAnswer();
+        require(latestAnswer > 0, "BlitsLock/invalid-oracle-price");
+        
         loanIdCounter = loanIdCounter + 1;
         
         // Add loanId to users
@@ -152,7 +150,7 @@ contract CollateralLock is Administration {
         userLoans[_lender].push(loanIdCounter);
         
         uint256 baseCollateral = msg.value.mul(100e18).div(collateralizationRatio);
-        uint256 latestPrice = uint256(priceFeed.latestAnswer()).mul(1e10);
+        uint256 latestPrice = uint256(latestAnswer).mul(1e10);
         uint256 collateralValue = baseCollateral.mul(latestPrice);
         
         loans[loanIdCounter] = Loan({
@@ -160,8 +158,6 @@ contract CollateralLock is Administration {
             lender: _lender,
             secretHashA1: _secretHashA1,
             secretHashB1: _secretHashB1,
-            secretHashAutoA1: _secretHashAutoA1,
-            secretHashAutoB1: _secretHashAutoB1,
             secretA1: "",
             secretB1: "",
             loanExpiration: now.add(loanExpirationPeriod),
@@ -173,6 +169,14 @@ contract CollateralLock is Administration {
             collateralValue: collateralValue,
             state: State.Locked
         });
+        
+        emit LockCollateral(
+          loanIdCounter,
+          msg.sender,
+          _lender,
+          msg.value,
+          collateralValue
+        );
     }
     
     /**
@@ -259,11 +263,6 @@ contract CollateralLock is Administration {
         // Zero collateral amount
         loans[_loanId].collateral = 0;
         
-        // Close loan
-        if(loans[_loanId].collateral == 0) {
-            loans[_loanId].state = State.Closed;
-        }
-        
         // Refund collateral to borrower
         loans[_loanId].borrower.transfer(collateral);
         
@@ -283,7 +282,7 @@ contract CollateralLock is Administration {
         address[2] memory actors,
         bytes32[2] memory secretHashes,
         bytes32[2] memory secrets,
-        uint256[2] memory expirations,
+        uint256[3] memory expirations,
         uint256[4] memory details,
         State state
     ) {
@@ -301,7 +300,8 @@ contract CollateralLock is Administration {
         ];
         expirations = [
             loans[_loanId].loanExpiration,
-            loans[_loanId].seizureExpiration
+            loans[_loanId].seizureExpiration,
+            loans[_loanId].createdAt
         ];
         details = [
             loans[_loanId].collateral,
@@ -336,6 +336,13 @@ contract CollateralLock is Administration {
     }
     
     // --- Events ---
+    event LockCollateral(
+      uint256 loanId,
+      address borrower,
+      address lender,
+      uint256 collateral,
+      uint256 collateralValue
+    );
     event UnlockAndClose(
         uint256 loanId,
         address borrower,
