@@ -260,7 +260,7 @@ contract BlitsLoans is Administration {
         loans[_loanId].borrower = _borrower;
         loans[_loanId].secretHashA1 = _secretHashA1;
         loans[_loanId].loanExpiration = now.add(loanExpirationPeriod);
-        loans[_loanId].acceptExpiration = now.add(acceptExpirationPeriod);
+        loans[_loanId].acceptExpiration = now.add(loanExpirationPeriod).add(acceptExpirationPeriod);
         
         emit LoanAssignedAndApproved(
             _loanId,
