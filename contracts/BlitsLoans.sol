@@ -95,7 +95,7 @@ contract BlitsLoans is Administration {
         address payable lender;
         address lenderAuto;
         // Lender's aCoin address
-        bytes32 aCoinLenderAddress;
+        bytes aCoinLenderAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -179,7 +179,7 @@ contract BlitsLoans is Administration {
         // loan details
         uint256 _principal,
         address _contractAddress,
-        bytes32 _aCoinLenderAddress
+        bytes memory _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "BlitsLoans/invalid-principal-amount");
         require(assetTypes[_contractAddress].enabled == 1, "BlitsLoans/asset-type-disabled");
@@ -425,6 +425,7 @@ contract BlitsLoans is Administration {
         uint256 demand,
         uint256 baseRatePerPeriod,
         uint256 multiplierPerPeriod,
+        uint256 interestRate,
         uint enabled,
         address contractAddress
     ) {
@@ -434,6 +435,7 @@ contract BlitsLoans is Administration {
         demand = assetTypes[_contractAddress].demand;
         baseRatePerPeriod = assetTypes[_contractAddress].baseRatePerPeriod;
         multiplierPerPeriod = assetTypes[_contractAddress].multiplierPerPeriod;
+        interestRate = getAssetInterestRate(_contractAddress);
         enabled = assetTypes[_contractAddress].enabled;
         contractAddress = assetTypes[_contractAddress].contractAddress;
     }
@@ -449,7 +451,7 @@ contract BlitsLoans is Administration {
         bytes32[3] memory secrets,
         uint256[2] memory expirations,
         uint256[2] memory details,
-        bytes32 aCoinLenderAddress,
+        bytes memory aCoinLenderAddress,
         State state,
         address contractAddress
     ){
@@ -548,8 +550,8 @@ contract BlitsLoans is Administration {
             token: ERC20(_contractAddress),
             maxLoanAmount: _maxLoanAmount,
             minLoanAmount: _minLoanAmount,
-            baseRatePerPeriod: _baseRatePerYear.mul(1e18).div(secondsPerYear),
-            multiplierPerPeriod: _multiplierPerYear.mul(1e18).div(secondsPerYear),
+            baseRatePerPeriod: _baseRatePerYear.mul(loanExpirationPeriod).div(secondsPerYear),
+            multiplierPerPeriod: _multiplierPerYear.mul(loanExpirationPeriod).div(secondsPerYear),
             enabled: 1,
             supply: 0,
             demand: 0
