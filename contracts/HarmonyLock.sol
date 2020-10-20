@@ -101,6 +101,8 @@ contract CollateralLock is Administration {
         // Actors
         address payable borrower;
         address payable lender;
+        // Borrower's bCoin address
+        bytes bCoinBorrowerAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -136,8 +138,8 @@ contract CollateralLock is Administration {
     function lockCollateral(
         address payable _lender,
         bytes32 _secretHashA1,
-        bytes32 _secretHashB1
-        
+        bytes32 _secretHashB1,
+        bytes memory _bCoinBorrowerAddress
     ) public payable {
         require(msg.value > 0, "BlitsLock/invalid-collateral-amount");
         int256 latestAnswer = priceFeed.latestAnswer();
@@ -151,11 +153,12 @@ contract CollateralLock is Administration {
         
         uint256 baseCollateral = msg.value.mul(100e18).div(collateralizationRatio);
         uint256 latestPrice = uint256(latestAnswer).mul(1e10);
-        uint256 collateralValue = baseCollateral.mul(latestPrice);
+        uint256 collateralValue = baseCollateral.mul(latestPrice).div(1e18);
         
         loans[loanIdCounter] = Loan({
             borrower: msg.sender,
             lender: _lender,
+            bCoinBorrowerAddress: _bCoinBorrowerAddress,
             secretHashA1: _secretHashA1,
             secretHashB1: _secretHashB1,
             secretA1: "",
