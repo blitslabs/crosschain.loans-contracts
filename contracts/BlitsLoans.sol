@@ -325,6 +325,8 @@ contract BlitsLoans is Administration {
         );
         
         loans[_loanId].state = State.Closed;
+        loans[_loanId].secretB1 = _secretB1;
+
         uint256 repayment = loans[_loanId].principal.add(
             loans[_loanId].interest
         );
@@ -349,7 +351,7 @@ contract BlitsLoans is Administration {
                 loans[_loanId].secretHashAutoB1,
             "BlitsLoans/invalid-secret-B1"
         );
-        require(now <= loans[_loanId].acceptExpiration,"BlitsLoans/accept-period-expired");
+        // require(now <= loans[_loanId].acceptExpiration,"BlitsLoans/accept-period-expired");
         require(
             loans[_loanId].state == State.Funded ||
                 loans[_loanId].state == State.Approved,
@@ -358,6 +360,7 @@ contract BlitsLoans is Administration {
         loans[_loanId].state = State.Canceled;
         uint256 principal = loans[_loanId].principal;
         loans[_loanId].principal = 0;
+        loans[_loanId].secretB1 = _secretB1;
         
         // Decrease supply
         address contractAddress = loans[_loanId].contractAddress;
