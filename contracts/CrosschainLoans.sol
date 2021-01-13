@@ -583,7 +583,7 @@ contract CrosschainLoans is Administration {
         if (_parameter == "loanExpirationPeriod") loanExpirationPeriod = _data;
         else if (_parameter == "acceptExpirationPeriod")
             acceptExpirationPeriod = _data;
-        else revert("BlitsLoats/modify-unrecognized-param");
+        else revert("CrosschainLoans/modify-unrecognized-param");
         emit ModifyLoanParameters(_parameter, _data);
     }
 

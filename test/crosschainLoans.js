@@ -390,16 +390,106 @@ contract('CrosschainLoans', async (accounts) => {
             )
         })
 
-        it('should fail to modify AssetType Loan Parameters if contract is invalid', async () => {
+        it('should fail to modify AssetType Loan Parameters if contract address is invalid', async () => {
             const newMaxLoanAmount = '-1'
             truffleAssert.reverts(
                 crosschainLoans.modifyAssetTypeLoanParameters(
-                    '0x00000000000000000000000000000000000',
+                    '0x0000000000000000000000000000000000000000',
                     web3.utils.fromAscii('maxLoanAmount'),
                     newMaxLoanAmount
                 ),
                 'CrosschainLoans/invalid-assetType',
                 'Shouldn\'t be able to modify AssetType Loan Parameters if address is invalid'
+            )
+        })
+
+        it('should fail to modify AssetType Loan Parameters if parameter is invalid', async () => {
+            truffleAssert.reverts(
+                crosschainLoans.modifyAssetTypeLoanParameters(
+                    token.address,
+                    web3.utils.fromAscii('invalidParam'),
+                    '1000'
+                ),
+                'CrosschainLoans/modify-unrecognized-param',
+                'Shouldn\'t be able to modify AssetType Loan Parameters if parameter is invalid'
+            )
+        })
+    })
+
+    describe('Loan Parameters', () => {
+        it('should modifyLoanParameters', async () => {
+            const web3 = new Web3()
+            const param1 = 'loanExpirationPeriod'
+            const data1 = '1000'
+            const param2 = 'acceptExpirationPeriod'
+            const data2 = '1000'
+
+            await crosschainLoans.modifyLoanParameters(
+                web3.utils.fromAscii(param1),
+                data1
+            )
+
+            await crosschainLoans.modifyLoanParameters(
+                web3.utils.fromAscii(param2),
+                data2
+            )
+            const events = await crosschainLoans.getPastEvents('ModifyLoanParameters', {
+                fromBlock: 0, toBlock: 'latest'
+            })
+
+            const loanExpirationPeriod = await crosschainLoans.loanExpirationPeriod()
+            const acceptExpirationPeriod = await crosschainLoans.acceptExpirationPeriod()
+            assert.equal(loanExpirationPeriod, data1, 'Invalid loanExpirationPeriod')
+            assert.equal(acceptExpirationPeriod, data2, 'Invalid acceptExpirationPeriod')
+            assert.equal(events[0].event, 'ModifyLoanParameters', 'ModifyLoanParameters event not emitted')
+        })
+
+        it('should fail to modifyLoanParameters if contract is disabled', async () => {
+            await crosschainLoans.disableContract()
+            const param1 = 'loanExpirationPeriod'
+            const data1 = '1000'
+            await truffleAssert.reverts(
+                crosschainLoans.modifyLoanParameters(
+                    web3.utils.fromAscii(param1),
+                    data1
+                ),
+                'CrosschainLoans/contract-not-enabled',
+                'Shouldn\'t be able to modifyLoanParameters if contract is disabled'
+            )
+        })
+
+        it('should fail to modifyLoanParameters if sender is not authorized', async () => {
+            const param1 = 'loanExpirationPeriod'
+            const data1 = '1000'
+            await truffleAssert.reverts(
+                crosschainLoans.modifyLoanParameters(
+                    web3.utils.fromAscii(param1),
+                    data1,
+                    { from: owner_2 }
+                ),
+                'CrosschainLoans/account-not-authorized',
+                'Shouldn\'t be able to modifyLoanParameters if sender is not authorized'
+            )
+        })
+
+        it('should fail to modifyLoanParameters if data and parameter are invalid', async () => {
+            const param1 = 'loanExpirationPeriod'
+            const data1 = '1000'
+            await truffleAssert.reverts(
+                crosschainLoans.modifyLoanParameters(
+                    web3.utils.fromAscii('invalidParam'),
+                    data1,
+                ),
+                'CrosschainLoans/modify-unrecognized-param',
+                'Shouldn\'t be able to modifyLoanParameters if parameter is invalid'
+            )
+            await truffleAssert.reverts(
+                crosschainLoans.modifyLoanParameters(
+                    web3.utils.fromAscii(param1),
+                    '0',
+                ),
+                'CrosschainLoans/null-data',
+                'Shouldn\'t be able to modifyLoanParameters if data is invalid'
             )
         })
     })
