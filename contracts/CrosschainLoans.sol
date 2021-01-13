@@ -107,7 +107,7 @@ contract CrosschainLoans is Administration {
         address payable lender;
         address lenderAuto;
         // Lender's aCoin address
-        bytes aCoinLenderAddress;
+        address aCoinLenderAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -206,7 +206,7 @@ contract CrosschainLoans is Administration {
         // loan details
         uint256 _principal,
         address _contractAddress,
-        bytes memory _aCoinLenderAddress
+        address _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
         require(
@@ -527,7 +527,7 @@ contract CrosschainLoans is Administration {
             bytes32[3] memory secrets,
             uint256[2] memory expirations,
             uint256[2] memory details,
-            bytes memory aCoinLenderAddress,
+            address aCoinLenderAddress,
             State state,
             address contractAddress
         )
