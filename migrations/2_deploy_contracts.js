@@ -1,10 +1,10 @@
 var DAI = artifacts.require('DAI.sol');
-var BlitsLoans = artifacts.require('BlitsLoans.sol');
-var HarmonyLock = artifacts.require('HarmonyLock.sol');
+var CrosschainLoans = artifacts.require('CrosschainLoans.sol');
+var CollateralLock = artifacts.require('CollateralLock.sol');
 
 module.exports = function (deployer) {
     // deployment steps
     deployer.deploy(DAI);
-    deployer.deploy(BlitsLoans);
-    deployer.deploy(HarmonyLock);
+    deployer.deploy(CrosschainLoans);
+    deployer.deploy(CollateralLock);
 };

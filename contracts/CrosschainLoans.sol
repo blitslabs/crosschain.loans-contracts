@@ -4,7 +4,7 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract Administration {
     // --- Data ---
-    uint contractEnabled = 0;
+    uint public contractEnabled = 0;
     
     // --- Auth ---
     mapping(address => uint) public authorizedAccounts;
@@ -31,7 +31,7 @@ contract Administration {
      * @notice Checks whether msg.sender can call an authed function
      */
     modifier isAuthorized {
-        require(authorizedAccounts[msg.sender] == 1, "BlitsLoans/account-not-authorized");
+        require(authorizedAccounts[msg.sender] == 1, "CrosschainLoans/account-not-authorized");
         _;
     }
     
@@ -39,7 +39,7 @@ contract Administration {
      * @notice Checks whether the contract is enabled
      */
     modifier contractIsEnabled {
-        require(contractEnabled == 1, "BlitsLoans/contract-not-enabled");
+        require(contractEnabled == 1, "CrosschainLoans/contract-not-enabled");
         _;
     }
     
@@ -65,7 +65,7 @@ contract Administration {
     event DisableContract();
 }
 
-contract BlitsLoans is Administration {
+contract CrosschainLoans is Administration {
     using SafeMath for uint256;
     
     // --- Data ---
@@ -76,8 +76,9 @@ contract BlitsLoans is Administration {
     // --- Loans Data ---
     mapping(uint256 => Loan) loans;
     uint256 public loanIdCounter;
-    mapping(address => uint256[]) userLoans;
-    
+    mapping(address => uint256[]) public userLoans;
+    mapping(address => uint256) public userLoansCount;    
+
     enum State {
         Open,
         Funded,
@@ -181,14 +182,14 @@ contract BlitsLoans is Administration {
         address _contractAddress,
         bytes memory _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
-        require(_principal > 0, "BlitsLoans/invalid-principal-amount");
-        require(assetTypes[_contractAddress].enabled == 1, "BlitsLoans/asset-type-disabled");
-        require(_principal <= assetTypes[_contractAddress].maxLoanAmount && _principal >= assetTypes[_contractAddress].minLoanAmount, "BlitsLoans/invalid-principal-range");
+        require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
+        require(assetTypes[_contractAddress].enabled == 1, "CrosschainLoans/asset-type-disabled");
+        require(_principal <= assetTypes[_contractAddress].maxLoanAmount && _principal >= assetTypes[_contractAddress].minLoanAmount, "CrosschainLoans/invalid-principal-range");
         
         // Check allowance
         ERC20 token = ERC20(_contractAddress);
         uint256 allowance = token.allowance(msg.sender, address(this));
-        require(allowance >= _principal, "BlitsLoans/invalid-token-allowance");
+        require(allowance >= _principal, "CrosschainLoans/invalid-token-allowance");
         
         // Transfer Token
         token.transferFrom(
@@ -227,7 +228,10 @@ contract BlitsLoans is Administration {
         
         // Add LoanId to user
         userLoans[msg.sender].push(loanIdCounter);
-        
+
+        // Increase userLoansCount
+        userLoansCount[msg.sender] = userLoansCount[msg.sender] + 1;      
+       
         // Increase asset type supply
         assetTypes[_contractAddress].supply = assetTypes[_contractAddress].supply.add(_principal);
         
@@ -246,16 +250,19 @@ contract BlitsLoans is Administration {
         address payable _borrower,
         bytes32 _secretHashA1
     ) public contractIsEnabled {
-        require(loans[_loanId].state == State.Funded, "BlitsLoans/loan-not-funded");
+        require(loans[_loanId].state == State.Funded, "CrosschainLoans/loan-not-funded");
         require(
             msg.sender == loans[_loanId].lender ||
                 msg.sender == loans[_loanId].lenderAuto,
-                "BlitsLoans/account-not-authorized"
+                "CrosschainLoans/account-not-authorized"
         );
         
         // Add LoanId to user
         userLoans[_borrower].push(loanIdCounter);
-        
+
+        // Increase userLoanCount
+        userLoansCount[_borrower] = userLoansCount[_borrower] + 1;
+
         loans[_loanId].state = State.Approved;
         loans[_loanId].borrower = _borrower;
         loans[_loanId].secretHashA1 = _secretHashA1;
@@ -269,17 +276,17 @@ contract BlitsLoans is Administration {
             loans[_loanId].state
         );
     }
-    
+
     /**
      * @notice Withdraw the loan's principal
      * @param _loanId The ID of the loan
      * @param _secretA1 Borrower's secret A1
      */
     function withdraw(uint256 _loanId, bytes32 _secretA1) public {
-        require(loans[_loanId].state == State.Approved, "BlitsLoans/loan-not-approved");
+        require(loans[_loanId].state == State.Approved, "CrosschainLoans/loan-not-approved");
         require(
             sha256(abi.encodePacked(_secretA1)) == loans[_loanId].secretHashA1,
-            "BlitsLoans/invalid-secret-A1"
+            "CrosschainLoans/invalid-secret-A1"
         );
         loans[_loanId].state = State.Withdrawn;
         loans[_loanId].secretA1 = _secretA1;
@@ -313,15 +320,15 @@ contract BlitsLoans is Administration {
                 loans[_loanId].secretHashB1 ||
                 sha256(abi.encodePacked(_secretB1)) ==
                 loans[_loanId].secretHashAutoB1,
-            "BlitsLoans/invalid-secret-B1"
+            "CrosschainLoans/invalid-secret-B1"
         );
         require(
             now <= loans[_loanId].acceptExpiration,
-            "BlitsLoans/accept-period-expired"
+            "CrosschainLoans/accept-period-expired"
         );
         require(
             loans[_loanId].state == State.Repaid,
-            "BlitsLoans/loan-not-repaid"
+            "CrosschainLoans/loan-not-repaid"
         );
         
         loans[_loanId].state = State.Closed;
@@ -349,13 +356,13 @@ contract BlitsLoans is Administration {
                 loans[_loanId].secretHashB1 ||
                 sha256(abi.encodePacked(_secretB1)) ==
                 loans[_loanId].secretHashAutoB1,
-            "BlitsLoans/invalid-secret-B1"
+            "CrosschainLoans/invalid-secret-B1"
         );
-        // require(now <= loans[_loanId].acceptExpiration,"BlitsLoans/accept-period-expired");
+        // require(now <= loans[_loanId].acceptExpiration,"CrosschainLoans/accept-period-expired");
         require(
             loans[_loanId].state == State.Funded ||
                 loans[_loanId].state == State.Approved,
-                "BlitsLoans/principal-withdrawn"
+                "CrosschainLoans/principal-withdrawn"
         );
         loans[_loanId].state = State.Canceled;
         uint256 principal = loans[_loanId].principal;
@@ -375,8 +382,8 @@ contract BlitsLoans is Administration {
      * @param _loanId The ID of the loan
      */
     function payback(uint256 _loanId) public {
-        require(loans[_loanId].state == State.Withdrawn, "BlitsLoans/invalid-loan-state");
-        require(now <= loans[_loanId].loanExpiration, "BlitsLoans/loan-expired");
+        require(loans[_loanId].state == State.Withdrawn, "CrosschainLoans/invalid-loan-state");
+        require(now <= loans[_loanId].loanExpiration, "CrosschainLoans/loan-expired");
         
         uint256 repayment = loans[_loanId].principal.add(
             loans[_loanId].interest
@@ -400,9 +407,9 @@ contract BlitsLoans is Administration {
      * @param _loanId The ID of the loan
      */
     function refundPayback(uint256 _loanId) public {
-        require(now > loans[_loanId].acceptExpiration, "BlitsLoans/accept-period-not-expired");
-        require(loans[_loanId].state == State.Repaid, "BlitsLoans/loan-not-repaid");
-        require(msg.sender == loans[_loanId].borrower, "BlitsLoans/account-not-authorized");
+        require(now > loans[_loanId].acceptExpiration, "CrosschainLoans/accept-period-not-expired");
+        require(loans[_loanId].state == State.Repaid, "CrosschainLoans/loan-not-repaid");
+        require(msg.sender == loans[_loanId].borrower, "CrosschainLoans/account-not-authorized");
         loans[_loanId].state = State.PaybackRefunded;
         uint256 refund = loans[_loanId].principal.add(loans[_loanId].interest);
         loans[_loanId].principal = 0;
@@ -497,7 +504,7 @@ contract BlitsLoans is Administration {
      * @param _data The new value for the parameter
      */
     function modifyLoanParameters(bytes32 _parameter, uint256 _data) external isAuthorized contractIsEnabled {
-        require(_data > 0, "BlitsLoans/null-data");
+        require(_data > 0, "CrosschainLoans/null-data");
         if(_parameter == "loanExpirationPeriod") loanExpirationPeriod = _data;
         else if (_parameter == "acceptExpirationPeriod") acceptExpirationPeriod = _data;
         else revert("BlitsLoats/modify-unrecognized-param");
@@ -511,10 +518,10 @@ contract BlitsLoans is Administration {
      * @param _data The new value for the parameter
      */
     function modifyAssetTypeLoanParameters(address _contractAddress, bytes32 _parameter, uint256 _data) external isAuthorized contractIsEnabled {
-        require(_data > 0, "BlitsLoans/null-data");
+        require(_data > 0, "CrosschainLoans/null-data");
         if(_parameter == "maxLoanAmount") assetTypes[_contractAddress].maxLoanAmount = _data;
         else if (_parameter == "minLoanAmount") assetTypes[_contractAddress].minLoanAmount = _data;
-        else revert("BlitsLoans/modify-unrecognized-param");
+        else revert("CrosschainLoans/modify-unrecognized-param");
         emit ModifyAssetTypeLoanParameters(_parameter, _data);
     }
     
@@ -544,9 +551,9 @@ contract BlitsLoans is Administration {
      * @param _multiplierPerYear The rate of increase in interest rate 
      */
     function addAssetType(address _contractAddress, uint256 _maxLoanAmount, uint256 _minLoanAmount, uint256 _baseRatePerYear, uint256 _multiplierPerYear) external isAuthorized contractIsEnabled {
-        require(_maxLoanAmount > 0, "BlitsLoans/invalid-maxLoanAmount");
-        require(_minLoanAmount > 0, "BlitsLoans/invalid-minLoanAmount");
-        require(assetTypes[_contractAddress].minLoanAmount == 0, "BlitsLoans/assetType-already-exists");
+        require(_maxLoanAmount > 0, "CrosschainLoans/invalid-maxLoanAmount");
+        require(_minLoanAmount > 0, "CrosschainLoans/invalid-minLoanAmount");
+        require(assetTypes[_contractAddress].minLoanAmount == 0, "CrosschainLoans/assetType-already-exists");
         
         assetTypes[_contractAddress] = AssetType({
             contractAddress: _contractAddress,
