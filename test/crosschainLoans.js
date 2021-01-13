@@ -203,6 +203,13 @@ contract('CrosschainLoans', async (accounts) => {
         })
 
         it('should disable AssetType', async () => {
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
             await crosschainLoans.disableAssetType(token.address)
             const assetType = await crosschainLoans.getAssetType(token.address)
             const events = await crosschainLoans.getPastEvents('DisableAssetType', {
@@ -213,6 +220,13 @@ contract('CrosschainLoans', async (accounts) => {
         })
 
         it('should fail to disable AssetType when sender is not authorized', async () => {
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
             await truffleAssert.reverts(
                 crosschainLoans.disableAssetType(token.address, { from: owner_2 }),
                 'CrosschainLoans/account-not-authorized',
@@ -221,6 +235,13 @@ contract('CrosschainLoans', async (accounts) => {
         })
 
         it('should fail to disable AssetType when contract is disabled', async () => {
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
             await crosschainLoans.disableContract({ from: owner })
             await truffleAssert.reverts(
                 crosschainLoans.disableAssetType(token.address),
@@ -230,6 +251,13 @@ contract('CrosschainLoans', async (accounts) => {
         })
 
         it('should enable AssetType', async () => {
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
             await crosschainLoans.disableAssetType(token.address)
             await crosschainLoans.enableAssetType(token.address)
             const assetType = await crosschainLoans.getAssetType(token.address)
@@ -237,6 +265,13 @@ contract('CrosschainLoans', async (accounts) => {
         })
 
         it('should fail to enable AssetType when sender is not authorized', async () => {
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
             await crosschainLoans.disableAssetType(token.address)
             await truffleAssert.reverts(
                 crosschainLoans.enableAssetType(token.address, { from: owner_2 }),

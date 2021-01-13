@@ -530,6 +530,7 @@ contract CrosschainLoans is Administration {
      * @param _contractAddress The contract address of the ERC20 token
      */
     function disableAssetType(address _contractAddress) external isAuthorized contractIsEnabled {
+        require(assetTypes[_contractAddress].contractAddress != address(0), "CrosschainLoans/invalid-assetType");
         assetTypes[_contractAddress].enabled = 0;
         emit DisableAssetType(_contractAddress);
     }
@@ -538,6 +539,7 @@ contract CrosschainLoans is Administration {
      * @notice Enable AssetType
      */
     function enableAssetType(address _contractAddress) external isAuthorized contractIsEnabled {
+        require(assetTypes[_contractAddress].contractAddress != address(0), "CrosschainLoans/invalid-assetType");
         assetTypes[_contractAddress].enabled = 1;
         emit EnableAssetType(_contractAddress);
     }
