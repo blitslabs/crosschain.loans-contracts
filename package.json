@@ -13,6 +13,7 @@
   "dependencies": {
     "@chainlink/contracts": "^0.0.10",
     "@harmony-js/core": "^0.1.53",
+    "@liquality-dev/crypto": "^0.3.9-alpha.0",
     "@liquality/crypto": "^0.6.0",
     "@truffle/hdwallet-provider": "^1.2.1",
     "bignumber.js": "^9.0.1",
