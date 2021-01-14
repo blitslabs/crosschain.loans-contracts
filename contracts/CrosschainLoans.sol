@@ -228,7 +228,7 @@ contract CrosschainLoans is Administration {
         );
 
         // Transfer Token
-        token.transferFrom(msg.sender, address(this), _principal);
+        require(token.transferFrom(msg.sender, address(this), _principal), "CrosschainLoans/token-transfer-failed");
 
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
