@@ -387,7 +387,10 @@ contract CrosschainLoans is Administration {
 
         uint256 repayment =
             loans[_loanId].principal.add(loans[_loanId].interest);
-        loans[_loanId].token.transfer(loans[_loanId].lender, repayment);
+        require(
+            loans[_loanId].token.transfer(loans[_loanId].lender, repayment),
+            "CrosschainLoans/token-transfer-failed"
+        );
 
         emit LoanRepaymentAccepted(_loanId, repayment, loans[_loanId].state);
     }
