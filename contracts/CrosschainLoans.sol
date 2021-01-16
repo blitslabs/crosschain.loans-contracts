@@ -332,6 +332,11 @@ contract CrosschainLoans is Administration {
             sha256(abi.encodePacked(_secretA1)) == loans[_loanId].secretHashA1,
             "CrosschainLoans/invalid-secret-A1"
         );
+        require(
+            now <= loans[_loanId].loanExpiration,
+            "CrosschainLoans/loan-expired"
+        );
+
         loans[_loanId].state = State.Withdrawn;
         loans[_loanId].secretA1 = _secretA1;
 
