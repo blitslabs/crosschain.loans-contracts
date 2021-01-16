@@ -224,31 +224,31 @@ contract CrosschainLoans is Administration {
         uint256 allowance = token.allowance(msg.sender, address(this));
         require(
             allowance >= _principal,
-            "CrosschainLoans/invalid-token-allowance"
+            "CrosschainLoans/insufficient-token-allowance"
         );
 
         // Transfer Token
-        require(token.transferFrom(msg.sender, address(this), _principal), "CrosschainLoans/token-transfer-failed");
+        require(
+            token.transferFrom(msg.sender, address(this), _principal),
+            "CrosschainLoans/token-transfer-failed"
+        );
 
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
 
         // Add Loan to mapping
-        loans[loanIdCounter] = Loan({
-            borrower: // Actors
-            address(0),
+        loans[loanIdCounter] = Loan({ // Actors
+            borrower: address(0),
             lender: msg.sender,
             lenderAuto: _lenderAuto,
-            aCoinLenderAddress: _aCoinLenderAddress,
-            secretHashA1: // Secret Hashes
-            "",
+            aCoinLenderAddress: _aCoinLenderAddress, // Secret Hashes
+            secretHashA1: "",
             secretHashB1: _secretHashB1,
             secretHashAutoB1: _secretHashAutoB1,
             secretA1: "",
             secretB1: "",
-            secretAutoB1: "",
-            loanExpiration: // Expiration dates
-            0,
+            secretAutoB1: "", // Expiration dates
+            loanExpiration: 0,
             acceptExpiration: 0,
             createdAt: now,
             principal: _principal,
@@ -425,7 +425,10 @@ contract CrosschainLoans is Administration {
             .supply
             .sub(loans[_loanId].principal);
 
-        loans[_loanId].token.transfer(loans[_loanId].lender, principal);
+        require(
+            loans[_loanId].token.transfer(loans[_loanId].lender, principal),
+            "CrosschainLoans/token-refund-failed"
+        );
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }
 
@@ -445,12 +448,25 @@ contract CrosschainLoans is Administration {
 
         uint256 repayment =
             loans[_loanId].principal.add(loans[_loanId].interest);
-        loans[_loanId].state = State.Repaid;
-        loans[_loanId].token.transferFrom(
-            loans[_loanId].borrower,
-            address(this),
-            repayment
+
+        // Check allowance
+        uint256 allowance =
+            loans[_loanId].token.allowance(msg.sender, address(this));
+        require(
+            allowance >= repayment,
+            "CrosschainLoans/insufficient-token-allowance"
         );
+
+        loans[_loanId].state = State.Repaid;
+        require(
+            loans[_loanId].token.transferFrom(
+                msg.sender,
+                address(this),
+                repayment
+            ),
+            "CrosschainLoans/token-transfer-failed"
+        );
+
         emit Payback(
             _loanId,
             loans[_loanId].borrower,

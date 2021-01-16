@@ -782,7 +782,7 @@ contract('CrosschainLoans', async () => {
                     aCoinLender,
                     { from: lender }
                 ),
-                "CrosschainLoans/invalid-token-allowance",
+                "CrosschainLoans/insufficient-token-allowance",
                 "Loan shouldn\'t be created if Allowance is insufficient"
             )            
         })
@@ -1068,7 +1068,266 @@ contract('CrosschainLoans', async () => {
                 'Loan principal shouldn\'t be withdrawn if secretA1 is invalid'
             )
         })
+    })
 
+    describe('Cancel Loan', () => {
+        let snapshot, snapshotId, borrowerLoansCount, secretA1, secretHashA1, principal, secretB1
+        const web3 = new Web3(HTTP_PROVIDER)
 
+        beforeEach(async () => {
+
+            snapshot = await helper.takeSnapshot()
+            snapshotId = snapshot['result']
+            const web3 = new Web3()
+
+            // Add AssetType
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            // AutoLender secret / secretHash
+            let lenderAutoLoansCount = await crosschainLoans.userLoansCount(lenderAuto)
+            let secretAutoB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderAutoLoansCount}`, lenderAutoPrivateKey))
+            let secretHashAutoB1 = `0x${sha256(secretAutoB1)}`
+
+            // Borrower secret / secretHash
+            borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce: ${borrowerLoansCount}`, borrowerPrivateKey))
+            secretHashA1 = `0x${sha256(secretA1)}`
+
+            assert.equal(lenderLoansCount, '0', 'Invalid lender loansCount')
+
+            // Loan #1 Details
+            principal = '1000000000000000000000'// 1,000
+
+            const lenderInitialBalance = '10000000000000000000000' // 10,000
+
+            // Transfer amount to lender
+            await token.transfer(lender, lenderInitialBalance, { from: owner })
+
+            // Approve Allowance (Lender)
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: lender })
+
+            // Create First Loan
+            await crosschainLoans.createLoan(
+                lenderAuto,
+                secretHashB1,
+                secretHashAutoB1,
+                principal,
+                token.address,
+                aCoinLender,
+                { from: lender }
+            )
+
+            await crosschainLoans.setBorrowerAndApprove(
+                '1',
+                borrower,
+                secretHashA1,
+                { from: lender }
+            )
+        })
+
+        afterEach(async () => {
+            await helper.revertToSnapShot(snapshotId)
+        })
+
+        it('should cancel loan', async () => {
+            const initialLenderBalance = await token.balanceOf(lender)
+
+            await crosschainLoans.cancelLoanBeforePrincipalWithdraw(
+                '1',
+                `0x${secretB1}`
+            )
+            const finalLenderBalance = await token.balanceOf(lender)
+
+            const loan = await crosschainLoans.fetchLoan(1)
+            const events = await crosschainLoans.getPastEvents('CancelLoan', {
+                fromBlock: 0, toBlock: 'latest'
+            })
+
+            assert.equal(loan.state, '7', 'Invalid canceled loan state')
+            assert.equal(events[0].event, 'CancelLoan', 'CancelLoan event not emitted')
+            assert.equal(finalLenderBalance.toString(), '10000000000000000000000', 'Invalid refund amount')
+            assert.equal(loan.details[0], '0', 'Invalid zero balance')
+        })
+
+        it('should fail to cancel loan if secretB1 is invalid', async () => {
+            await truffleAssert.reverts(
+                crosschainLoans.cancelLoanBeforePrincipalWithdraw(
+                    '1',
+                    `0x${secretA1}`
+                ),
+                "CrosschainLoans/invalid-secret-B1",
+                "Loan shouldn't be canceled if secretB1 is invalid"
+            )
+        })
+
+        it('should fail to cancel loan if principal has been withdrawn', async () => {
+            await crosschainLoans.withdraw(
+                '1',
+                `0x${secretA1}`
+            )
+            await truffleAssert.reverts(
+                crosschainLoans.cancelLoanBeforePrincipalWithdraw(
+                    '1',
+                    `0x${secretB1}`
+                ),
+                "CrosschainLoans/principal-withdrawn",
+                "Loan shouldn't be canceled if principal has been withdrawn"
+            )
+        })
+    })
+
+    describe('Payback', () => {
+
+        let snapshot, snapshotId, borrowerLoansCount, secretA1, secretHashA1, principal, secretB1
+        const web3 = new Web3(HTTP_PROVIDER)
+
+        beforeEach(async () => {
+
+            snapshot = await helper.takeSnapshot()
+            snapshotId = snapshot['result']
+            const web3 = new Web3()
+
+            // Add AssetType
+            await crosschainLoans.addAssetType(
+                token.address,
+                maxLoanAmount,
+                minLoanAmount,
+                baseRatePerYear,
+                multiplierPerYear
+            )
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            // AutoLender secret / secretHash
+            let lenderAutoLoansCount = await crosschainLoans.userLoansCount(lenderAuto)
+            let secretAutoB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderAutoLoansCount}`, lenderAutoPrivateKey))
+            let secretHashAutoB1 = `0x${sha256(secretAutoB1)}`
+
+            // Borrower secret / secretHash
+            borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce: ${borrowerLoansCount}`, borrowerPrivateKey))
+            secretHashA1 = `0x${sha256(secretA1)}`
+
+            assert.equal(lenderLoansCount, '0', 'Invalid lender loansCount')
+
+            // Loan #1 Details
+            principal = '1000000000000000000000'// 1,000
+
+            const lenderInitialBalance = '10000000000000000000000' // 10,000
+
+            // Transfer amount to lender
+            await token.transfer(lender, lenderInitialBalance, { from: owner })
+
+            // Approve Allowance (Lender)
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: lender })
+
+            // Create First Loan
+            await crosschainLoans.createLoan(
+                lenderAuto,
+                secretHashB1,
+                secretHashAutoB1,
+                principal,
+                token.address,
+                aCoinLender,
+                { from: lender }
+            )
+
+            await crosschainLoans.setBorrowerAndApprove(
+                '1',
+                borrower,
+                secretHashA1,
+                { from: lender }
+            )
+
+            await crosschainLoans.withdraw(
+                '1',
+                `0x${secretA1}`
+            )
+        })
+
+        afterEach(async () => {
+            await helper.revertToSnapShot(snapshotId)
+        })
+
+        it('should repay loan', async () => {
+            let loan = await crosschainLoans.fetchLoan(1)
+            const interest = loan.details[1]
+            await token.transfer(borrower, interest, { from: owner })
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: borrower })
+
+            await crosschainLoans.payback('1', { from: borrower })
+            const borrowerBalance = await token.balanceOf(borrower)
+            const events = await crosschainLoans.getPastEvents('Payback', {
+                fromBlock: 0, toBlock: 'latest'
+            })
+            loan = await crosschainLoans.fetchLoan(1)
+
+            assert.equal(borrowerBalance, '0', 'Invalid borrower balance after repayment')
+            assert.equal(loan.state, '4', 'Invalid loan state')
+            assert.equal(events[0].event, 'Payback', 'Payback event not emitted')
+        })
+
+        it('should fail to repay loan if loan\'s state is not Withdrawn', async () => {
+            let loan = await crosschainLoans.fetchLoan(1)
+            const interest = loan.details[1]
+            await token.transfer(borrower, interest, { from: owner })
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: borrower })
+            await crosschainLoans.payback('1', { from: borrower })
+            await truffleAssert.reverts(
+                crosschainLoans.payback('1', { from: borrower }),
+                "CrosschainLoans/invalid-loan-state",
+                "Loan shouldn't be repaid if state is not Withdrawn"
+            )
+        })
+
+        it('should fail to repay loan if it\'s expired', async () => {
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 31) 
+            let loan = await crosschainLoans.fetchLoan(1)
+            const interest = loan.details[1]
+            await token.transfer(borrower, interest, { from: owner })
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: borrower })
+            await truffleAssert.reverts(
+                crosschainLoans.payback('1', { from: borrower }),
+                "CrosschainLoans/loan-expired",
+                "Loan shouldn't be repaid if loan expired"
+            )
+        })
+
+        it('should fail to repay loan if allowance is insufficient', async () => {
+            let loan = await crosschainLoans.fetchLoan(1)
+            const interest = loan.details[1]
+            await token.transfer(borrower, interest, { from: owner })
+            await token.approve(crosschainLoans.address, '1', { from: borrower })
+            await truffleAssert.reverts(
+                crosschainLoans.payback('1', { from: borrower }),
+                "CrosschainLoans/insufficient-token-allowance",
+                "Loan shouldn't be repaid if insufficient allowance"
+            )
+        })
+
+        it('should fail to repay loan if insufficient balance', async () => {
+            let loan = await crosschainLoans.fetchLoan(1)
+            const interest = loan.details[1]
+            await token.approve(crosschainLoans.address, '1000000000000000000000000', { from: borrower })
+            await truffleAssert.reverts(
+                crosschainLoans.payback('1', { from: borrower }),
+                "ERC20: transfer amount exceeds balance",
+                "Loan shouldn't be repaid if insufficient balance"
+            )
+        })
     })
 })
