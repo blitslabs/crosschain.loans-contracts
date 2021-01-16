@@ -491,15 +491,14 @@ contract CrosschainLoans is Administration {
             loans[_loanId].state == State.Repaid,
             "CrosschainLoans/loan-not-repaid"
         );
-        require(
-            msg.sender == loans[_loanId].borrower,
-            "CrosschainLoans/account-not-authorized"
-        );
         loans[_loanId].state = State.PaybackRefunded;
         uint256 refund = loans[_loanId].principal.add(loans[_loanId].interest);
         loans[_loanId].principal = 0;
         loans[_loanId].interest = 0;
-        loans[_loanId].token.transfer(loans[_loanId].borrower, refund);
+        require(
+            loans[_loanId].token.transfer(loans[_loanId].borrower, refund),
+            "CrosschainLoans/token-transfer-failed"
+        );
         emit RefundPayback(
             _loanId,
             loans[_loanId].borrower,
