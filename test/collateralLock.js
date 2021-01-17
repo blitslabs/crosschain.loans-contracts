@@ -6,11 +6,12 @@ const { assert } = require('chai')
 const ethers = require('ethers')
 const wallet = require('ethereumjs-wallet')
 const helper = require('../utils/utils')
+const CrosschainLoans = artifacts.require('./CrosschainLoans.sol')
 const CollateralLock = artifacts.require('./CollateralLock.sol')
 const AggregatorTest = artifacts.require('./AggregatorTest.sol')
 const HTTP_PROVIDER = 'http://localhost:7545'
 
-let collateralLock, aggregatorTest
+let collateralLock, aggregatorTest, crosschainLoans
 const SECONDS_IN_DAY = 86400
 
 contract('CollateralLock', async () => {
@@ -21,6 +22,7 @@ contract('CollateralLock', async () => {
     const borrowerWallet = ethers.Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/3")
     const owner2Wallet = ethers.Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/4")
     const aCoinLenderWallet = ethers.Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/5")
+    const bCoinBorrowerWallet = ethers.Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/6")
 
     // accounts
     const owner = ownerWallet.address
@@ -29,20 +31,28 @@ contract('CollateralLock', async () => {
     const borrower = borrowerWallet.address
     const owner_2 = owner2Wallet.address
     const aCoinLender = aCoinLenderWallet.address
+    const bCoinBorrower = bCoinBorrowerWallet.address
 
     // private keys
     const lenderPrivateKey = lenderWallet.privateKey
     const lenderAutoPrivateKey = lenderAutoWallet.privateKey
     const borrowerPrivateKey = borrowerWallet.privateKey
     const aCoinLenderPrivateKey = aCoinLenderWallet.privateKey
+    const bCoinBorrowerPrivateKey = bCoinBorrowerWallet.privateKey
 
-    // prices
+    // Globals
+    const loanExpirationPeriod = 2851200 // 33 days
+    const seizureExpirationPeriod = 3110400 // 36 days
+    const collateralizationRatio = 150e18
     const initialPrice = '541000'
 
     beforeEach(async () => {
+        crosschainLoans = await CrosschainLoans.new({ from: owner })
         collateralLock = await CollateralLock.new({ from: owner })
         aggregatorTest = await AggregatorTest.new({ from: owner })
-        await aggregatorTest.updateAnswer(initialPrice)
+        await collateralLock.modifyLoanParameters(web3.utils.fromAscii('priceFeed'), aggregatorTest.address)
+        await aggregatorTest.updateAnswer(initialPrice, { from: owner })
+        // await aggregatorTest.updateAnswer('0', { from: owner })
     })
 
     describe('Deployment', () => {
@@ -206,5 +216,169 @@ contract('CollateralLock', async () => {
         })
     })
 
+    describe('Lock Collateral', () => {
+        const emptyAddress = '0x0000000000000000000000000000000000000000'
+        const emptyBytes = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
+        let snapshot, snapshotId
+
+        beforeEach(async () => {
+            snapshot = await helper.takeSnapshot()
+            snapshotId = snapshot['result']
+        })
+
+        afterEach(async () => {
+            await helper.revertToSnapShot(snapshotId)
+        })
+
+        it('should lock collateral', async () => {
+
+            // Borrower secret / secretHash
+            let borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            let secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce ${borrowerLoansCount}`, borrowerPrivateKey))
+            let secretHashA1 = `0x${sha256(secretA1)}`
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            let secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            // Lock Collateral Details
+            const collateral = '9000000000000000000'
+            const lockPrice = BigNumber('541000').multipliedBy(1e10).toString()
+            const baseCollateral = BigNumber(collateral).multipliedBy(100e18).dividedBy(collateralizationRatio)
+            const collateralValue = parseFloat(baseCollateral.multipliedBy(lockPrice))
+
+            // Update Aggregator's Price
+            await aggregatorTest.updateAnswer(lockPrice, { from: owner })
+
+            const tx = await collateralLock.lockCollateral(
+                lender,
+                secretHashA1,
+                secretHashB1,
+                bCoinBorrower,
+                { from: borrower, value: collateral }
+            )
+
+            const currentTimestamp = (await web3.eth.getBlock(tx.receipt.blockNumber))['timestamp']
+            const loanExpiration = parseInt(currentTimestamp) + loanExpirationPeriod
+            const seizureExpiration = parseInt(currentTimestamp) + seizureExpirationPeriod
+
+            const loan = await collateralLock.fetchLoan(1)
+            assert.equal(loan.actors[0], borrower, 'Invalid borrower')
+            assert.equal(loan.actors[1], lender, 'Invalid lender')
+            assert.equal(loan.secretHashes[0], secretHashA1, 'Invalid setHashA1')
+            assert.equal(loan.secretHashes[1], secretHashB1, 'Invalid secretHashB1')
+            assert.equal(loan.secrets[0], emptyBytes, 'Invalid secretA1')
+            assert.equal(loan.secrets[1], emptyBytes, 'Invalid secretB1')
+            assert.equal(loan.expirations[0], loanExpiration, 'Invalid loanExpiration')
+            assert.equal(loan.expirations[1], seizureExpiration, 'Invalid seizureExpiration')
+            assert.equal(loan.expirations[2], currentTimestamp, 'Invalid createdAt')
+            assert.equal(loan.details[0].toString(), collateral, 'Invalid collateral')
+            assert.equal(loan.details[1].toString(), collateralValue, 'Invalid collateral value')
+            assert.equal(loan.details[2].toString(), lockPrice, 'Invalid lockPrice')
+            assert.equal(loan.details[3].toString(), lockPrice, 'Invalid liquidationPrice')
+            assert.equal(loan.state, '0', 'Invalid loan state')
+        })
+
+        it('should fail to lock collateral is amount is invalid', async () => {
+            // Borrower secret / secretHash
+            let borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            let secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce ${borrowerLoansCount}`, borrowerPrivateKey))
+            let secretHashA1 = `0x${sha256(secretA1)}`
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            let secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            // Lock Collateral Details
+            const collateral = '0'
+
+            await truffleAssert.reverts(
+                collateralLock.lockCollateral(
+                    lender,
+                    secretHashA1,
+                    secretHashB1,
+                    bCoinBorrower,
+                    { from: borrower, value: collateral }
+                ),
+                "CollateralLock/invalid-collateral-amount",
+                "Should not be able to lock collateral if amount is invalid"
+            )
+        })        
+    })
+
+    describe('Unlock Collateral', async () => {
+
+        let secretA1, secretB1
+        beforeEach(async () => {
+            // Borrower secret / secretHash
+            let borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce ${borrowerLoansCount}`, borrowerPrivateKey))
+            let secretHashA1 = `0x${sha256(secretA1)}`
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            await aggregatorTest.updateAnswer(initialPrice, { from: owner })
+
+            // Lock Collateral Details
+            const collateral = '9000000000000000000'
+            await collateralLock.lockCollateral(
+                lender,
+                secretHashA1,
+                secretHashB1,
+                bCoinBorrower,
+                { from: borrower, value: collateral }
+            )
+        })
+
+        it('should unlock collateral', async () => {
+            const web3 = new Web3(HTTP_PROVIDER)
+            let loan = await collateralLock.fetchLoan(1)
+            const collateral = loan.details[0].toString()
+            const initialBalance = await web3.eth.getBalance(borrower)
+            await collateralLock.unlockCollateralAndCloseLoan(1, `0x${secretB1}`)
+            const finalBalance = await web3.eth.getBalance(borrower)
+            loan = await collateralLock.fetchLoan(1)
+            const testBalance = BigNumber(collateral).plus(initialBalance.toString())
+            assert.equal(finalBalance, testBalance.toString(), 'Invalid final balance')
+            assert.equal(loan.state, '1', 'Invalid loan state')
+            assert.equal(loan.details[0], '0', 'Invalid final collateral')
+            const events = await collateralLock.getPastEvents('UnlockAndClose', {
+                fromBlock: 0, toBlock: 'latest'
+            })
+            assert.equal(events[0].event, 'UnlockAndClose', 'UnlockAndClose event not emitted')
+        })
+
+        it('should fail to unlock collateral if state is not locked', async () => {
+            await collateralLock.unlockCollateralAndCloseLoan(1, `0x${secretB1}`)
+            await truffleAssert.reverts(
+                collateralLock.unlockCollateralAndCloseLoan(1, `0x${secretB1}`),
+                "CollateralLock/collateral-not-locked",
+                "Should not unlock collateral if state is not locked"
+            )
+        })
+
+        it('should fail to unlock collateral if loan period expired', async () => {
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 40)
+            await truffleAssert.reverts(
+                collateralLock.unlockCollateralAndCloseLoan(1, `0x${secretB1}`),
+                "CollateralLock/loan-period-expired",
+                "Should not unlock collateral if loan period expired"
+            )
+        })
+
+        it('should fail to unlock collateral if secretB1 is invalid', async () => {
+            await truffleAssert.reverts(
+                collateralLock.unlockCollateralAndCloseLoan(1, `0x${secretA1}`),
+                "CollateralLock/invalid-secretB1",
+                "Should not unlock collateral if secretB1 is invalid"
+            )
+        })
+    })
 
 })
