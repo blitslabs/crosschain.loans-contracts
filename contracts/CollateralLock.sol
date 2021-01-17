@@ -117,7 +117,7 @@ contract CollateralLock is Administration {
     mapping(address => uint256[]) public userLoans;
     mapping(address => uint256) public userLoansCount;
 
-    enum State {Locked, Closed}
+    enum State {Locked, Seized, Refunded, Closed}
 
     struct Loan {
         // Actors
@@ -256,7 +256,8 @@ contract CollateralLock is Administration {
      */
     function seizeCollateral(uint256 _loanId, bytes32 _secretA1) public {
         require(
-            sha256(abi.encodePacked(_secretA1)) == loans[_loanId].secretHashA1
+            sha256(abi.encodePacked(_secretA1)) == loans[_loanId].secretHashA1,
+            "CollateralLock/invalid-secret-A1"
         );
         require(
             now > loans[_loanId].loanExpiration,
@@ -292,13 +293,13 @@ contract CollateralLock is Administration {
             seizableCollateral
         );
 
-        // Close loan if there's no collateral left
-        if (loans[_loanId].collateral == 0) {
-            loans[_loanId].state = State.Closed;
-        }
+        // Update loan
+        loans[_loanId].state = State.Seized;
 
         // Refund seized collateral to lender
         loans[_loanId].lender.transfer(seizableCollateral);
+
+        // Emit event
         emit SeizeCollateral(
             _loanId,
             loans[_loanId].lender,

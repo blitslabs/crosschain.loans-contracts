@@ -5,6 +5,7 @@ const { sha256 } = require('@liquality-dev/crypto')
 const { assert } = require('chai')
 const ethers = require('ethers')
 const wallet = require('ethereumjs-wallet')
+const fromExponential = require('from-exponential')
 const helper = require('../utils/utils')
 const CrosschainLoans = artifacts.require('./CrosschainLoans.sol')
 const CollateralLock = artifacts.require('./CollateralLock.sol')
@@ -346,7 +347,7 @@ contract('CollateralLock', async () => {
             loan = await collateralLock.fetchLoan(1)
             const testBalance = BigNumber(collateral).plus(initialBalance.toString())
             assert.equal(finalBalance, testBalance.toString(), 'Invalid final balance')
-            assert.equal(loan.state, '1', 'Invalid loan state')
+            assert.equal(loan.state, '3', 'Invalid loan state')
             assert.equal(loan.details[0], '0', 'Invalid final collateral')
             const events = await collateralLock.getPastEvents('UnlockAndClose', {
                 fromBlock: 0, toBlock: 'latest'
@@ -381,4 +382,103 @@ contract('CollateralLock', async () => {
         })
     })
 
+    describe('Seize Collateral', async () => {
+        let secretA1, secretB1
+        beforeEach(async () => {
+            // Borrower secret / secretHash
+            let borrowerLoansCount = await crosschainLoans.userLoansCount(borrower)
+            secretA1 = sha256(web3.eth.accounts.sign(`SecretA1. Nonce ${borrowerLoansCount}`, borrowerPrivateKey))
+            let secretHashA1 = `0x${sha256(secretA1)}`
+
+            // Lender secret / secretHash
+            let lenderLoansCount = await crosschainLoans.userLoansCount(lender)
+            secretB1 = sha256(web3.eth.accounts.sign(`SecretB1. Nonce: ${lenderLoansCount}`, lenderPrivateKey))
+            let secretHashB1 = `0x${sha256(secretB1)}`
+
+            await aggregatorTest.updateAnswer(initialPrice, { from: owner })
+
+            // Lock Collateral Details
+            const collateral = '9000000000000000000'
+            await collateralLock.lockCollateral(
+                aCoinLender,
+                secretHashA1,
+                secretHashB1,
+                bCoinBorrower,
+                { from: borrower, value: collateral }
+            )
+        })
+
+        it('should seize collateral', async () => {
+            const web3 = new Web3(HTTP_PROVIDER)
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 34)
+
+            // Initial Loan & Balance
+            const loan = await collateralLock.fetchLoan(1)
+            const initialBalance = await web3.eth.getBalance(aCoinLender)
+
+            // Seize collateral
+            const tx = await collateralLock.seizeCollateral(1, `0x${secretA1}`, { from: aCoinLender })
+            const gasUsed = tx.receipt.gasUsed
+
+            // Calculate seizable & refundable collateral
+            const collateralValue = loan.details[1]
+            const latestPrice = BigNumber(await aggregatorTest.latestAnswer()).multipliedBy(1e10)
+            const seizableCollateral = parseInt(collateralValue) / parseInt(latestPrice)
+            const refundableCollateral = BigNumber(loan.details[0]).minus(seizableCollateral)
+
+            // Final Loan & Balance
+            const finalBalance = await web3.eth.getBalance(aCoinLender)
+            const testFinalBalance = BigNumber(seizableCollateral.toString()).plus(initialBalance.toString()).minus('1470460000000000')
+            const loan_final = await collateralLock.fetchLoan(1)
+
+            // Contract balance
+            const contractBalance = await web3.eth.getBalance(collateralLock.address)
+
+            assert.equal(loan_final.state, '1', 'Invalid loan state')
+            assert.equal(loan_final.details[0].toString(), refundableCollateral.toString(), 'Invalid refundable collateral')
+            assert.equal(finalBalance, fromExponential(testFinalBalance.toString()), 'Invalid final balance')
+            assert.equal(contractBalance.toString(), refundableCollateral.toString(), 'Invalid contract balance')
+
+            const events = await collateralLock.getPastEvents('SeizeCollateral', {
+                fromBlock: 0, toBlock: 'latest'
+            })
+            assert.equal(events[0].event, 'SeizeCollateral', 'SeizeCollateral event not emitted')
+        })
+
+        it('should fail to seize collateral if secretA1 is invalid', async () => {
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 34)
+            await truffleAssert.reverts(
+                collateralLock.seizeCollateral(1, `0x${secretB1}`, { from: aCoinLender }),
+                "CollateralLock/invalid-secret-A1",
+                "Should not be able to seize collateral if secretA1 is invalid"
+            )
+        })
+
+        it('should fail to seize collateral if loan period is still active', async () => {
+            await truffleAssert.reverts(
+                collateralLock.seizeCollateral(1, `0x${secretA1}`, { from: aCoinLender }),
+                "CollateralLock/loan-period-active",
+                "Should not be able to seize collateral if loan period is still active"
+            )
+        })
+
+        it('should fail to seize collateral if the seize period expired', async () => {
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 37)
+            await truffleAssert.reverts(
+                collateralLock.seizeCollateral(1, `0x${secretA1}`, { from: aCoinLender }),
+                "CollateralLock/seizure-period-expired",
+                "Should not be able to seize collateral if the seize period expired"
+            )
+        })
+
+        it('should fail to seize collateral 2 times', async () => {
+            await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 34)
+            await collateralLock.seizeCollateral(1, `0x${secretA1}`, { from: aCoinLender })
+            await truffleAssert.reverts(
+                collateralLock.seizeCollateral(1, `0x${secretA1}`, { from: aCoinLender }),
+                "CollateralLock/collateral-not-locked",
+                "Should not be able to seize collateral more than 1 time"
+            )
+        })
+    })
 })
