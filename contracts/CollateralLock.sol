@@ -317,7 +317,7 @@ contract CollateralLock is Administration {
             "CollateralLock/seizure-period-not-expired"
         );
         require(
-            loans[_loanId].state == State.Locked,
+            loans[_loanId].state == State.Locked || loans[_loanId].state == State.Seized,
             "CollateralLock/collateral-not-locked"
         );
         require(
@@ -329,6 +329,9 @@ contract CollateralLock is Administration {
 
         // Zero collateral amount
         loans[_loanId].collateral = 0;
+
+        // Update loan state
+        loans[_loanId].state = State.Refunded;
 
         // Refund collateral to borrower
         loans[_loanId].borrower.transfer(collateral);
