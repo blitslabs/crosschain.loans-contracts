@@ -103,8 +103,7 @@ contract CollateralLockV2 is Administration {
     using SafeMath for uint256;
 
     // --- Data ---
-    uint256 public loanExpirationPeriod = 2851200; //  33 days
-    uint256 public seizureExpirationPeriod = 3110400; // 36 days
+    uint256 public loanExpirationPeriod = 2851200; //  33 days    
     uint256 public collateralizationRatio = 150e18; // 150%
 
     // Oracle
@@ -117,7 +116,7 @@ contract CollateralLockV2 is Administration {
     mapping(address => uint256[]) public userLoans;
     mapping(address => uint256) public userLoansCount;
 
-    enum State {Locked, Seized, Refunded, Closed}
+    enum State {Locked, Seized, Closed}
 
     struct Loan {
         // Actors
@@ -186,8 +185,7 @@ contract CollateralLockV2 is Administration {
             secretHashB1: _secretHashB1,
             secretA1: "",
             secretB1: "",
-            loanExpiration: now.add(loanExpirationPeriod),
-            seizureExpiration: now.add(seizureExpirationPeriod),
+            loanExpiration: now.add(loanExpirationPeriod),            
             createdAt: now,
             collateral: msg.value,
             lockPrice: latestPrice,
@@ -262,10 +260,6 @@ contract CollateralLockV2 is Administration {
         require(
             now > loans[_loanId].loanExpiration,
             "CollateralLock/loan-period-active"
-        );
-        require(
-            now <= loans[_loanId].seizureExpiration,
-            "CollateralLock/seizure-period-expired"
         );
         require(
             loans[_loanId].state == State.Locked,
@@ -379,9 +373,7 @@ contract CollateralLockV2 is Administration {
         contractIsEnabled
     {
         require(_data > 0, "CollateralLock/null-data");
-        if (_parameter == "loanExpirationPeriod") loanExpirationPeriod = _data;
-        else if (_parameter == "seizureExpirationPeriod")
-            seizureExpirationPeriod = _data;
+        if (_parameter == "loanExpirationPeriod") loanExpirationPeriod = _data;        
         else if (_parameter == "collateralizationRatio")
             collateralizationRatio = _data;
         else if (_parameter == "priceFeed")
