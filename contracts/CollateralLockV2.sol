@@ -124,6 +124,8 @@ contract CollateralLockV2 is Administration {
         address payable lender;
         // Borrower's bCoin address
         address bCoinBorrowerAddress;
+        uint256 bCoinLoanId;
+        bytes32 bCoin;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -131,8 +133,7 @@ contract CollateralLockV2 is Administration {
         bytes32 secretA1;
         bytes32 secretB1;
         // Expirations
-        uint256 loanExpiration;
-        uint256 seizureExpiration;
+        uint256 loanExpiration;       
         uint256 createdAt;
         // Loan Details
         uint256 collateral;
@@ -155,12 +156,17 @@ contract CollateralLockV2 is Administration {
      * @param _lender Lender's address on the collateral's blockchain
      * @param _secretHashA1 secretA1's hash
      * @param _secretHashB1 secretB1's hash
+     * @param _bCoinBorrowerAddress Borrowers address in bCoin's blockchain
+     * @param _bCoinLoanId LoanId in bCoin
+     * @param _bCoin bCoin's blockchain
      */
     function lockCollateral(
         address payable _lender,
         bytes32 _secretHashA1,
         bytes32 _secretHashB1,
-        address _bCoinBorrowerAddress
+        address _bCoinBorrowerAddress,
+        uint256 _bCoinLoanId,
+        bytes32 _bCoin
     ) public payable {
         require(msg.value > 0, "CollateralLock/invalid-collateral-amount");
         int256 latestAnswer = priceFeed.latestAnswer();
@@ -181,6 +187,8 @@ contract CollateralLockV2 is Administration {
             borrower: msg.sender,
             lender: _lender,
             bCoinBorrowerAddress: _bCoinBorrowerAddress,
+            bCoinLoanId: _bCoinLoanId,
+            bCoin: _bCoin,
             secretHashA1: _secretHashA1,
             secretHashB1: _secretHashB1,
             secretA1: "",
@@ -322,7 +330,7 @@ contract CollateralLockV2 is Administration {
             address[2] memory actors,
             bytes32[2] memory secretHashes,
             bytes32[2] memory secrets,
-            uint256[3] memory expirations,
+            uint256[2] memory expirations,
             uint256[4] memory details,
             State state
         )
@@ -337,8 +345,7 @@ contract CollateralLockV2 is Administration {
         ];
         secrets = [loans[_loanId].secretA1, loans[_loanId].secretB1];
         expirations = [
-            loans[_loanId].loanExpiration,
-            loans[_loanId].seizureExpiration,
+            loans[_loanId].loanExpiration,            
             loans[_loanId].createdAt
         ];
         details = [
