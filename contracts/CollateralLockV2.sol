@@ -327,17 +327,20 @@ contract CollateralLockV2 is Administration {
         public
         view
         returns (
-            address[2] memory actors,
+            address[3] memory actors,
             bytes32[2] memory secretHashes,
             bytes32[2] memory secrets,
             uint256[2] memory expirations,
             uint256[4] memory details,
+            uint256 bCoinLoanId,
+            bytes32 bCoin,
             State state
         )
     {
         actors = [
             address(loans[_loanId].borrower),
-            address(loans[_loanId].lender)
+            address(loans[_loanId].lender),
+            address(loans[_loanId].bCoinBorrowerAddress)
         ];
         secretHashes = [
             loans[_loanId].secretHashA1,
@@ -354,6 +357,8 @@ contract CollateralLockV2 is Administration {
             loans[_loanId].lockPrice,
             loans[_loanId].liquidationPrice
         ];
+        bCoinLoanId = loans[_loanId].bCoinLoanId;
+        bCoin = loans[_loanId].bCoin;
         state = loans[_loanId].state;
     }
 

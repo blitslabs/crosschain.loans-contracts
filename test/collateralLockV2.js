@@ -277,6 +277,9 @@ contract('CollateralLockV2', async () => {
             assert.equal(loan.details[2].toString(), lockPrice, 'Invalid lockPrice')
             assert.equal(loan.details[3].toString(), lockPrice, 'Invalid liquidationPrice')
             assert.equal(loan.state, '0', 'Invalid loan state')
+            assert.equal(loan.actors[2], bCoinBorrower, 'Invalid borrower\'s bCoin Address')
+            assert.equal(loan.bCoinLoanId, '1', 'Invalid bCoin Loan ID')
+            assert.equal(web3.utils.toUtf8(loan.bCoin).toString(), 'ethereum', 'Invalid bCoin')
         })
 
         it('should fail to lock collateral is amount is invalid', async () => {
