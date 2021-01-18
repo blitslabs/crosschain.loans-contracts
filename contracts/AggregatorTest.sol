@@ -37,14 +37,14 @@ contract AggregatorTest is Ownable {
         uint256 timestamp;
     }
 
-    uint256 private answerCounter = 1;
+    uint256 private answerCounter = 0;
 
     function latestAnswer() external view returns (int256) {
-        return rounds[answerCounter - 1].price;
+        return rounds[answerCounter].price;
     }
 
     function latestTimestamp() external view returns (uint256) {
-        return rounds[answerCounter - 1].timestamp;
+        return rounds[answerCounter].timestamp;
     }
 
     function latestRound() external view returns (uint256) {
