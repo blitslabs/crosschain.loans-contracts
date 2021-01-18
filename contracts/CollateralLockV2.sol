@@ -248,7 +248,7 @@ contract CollateralLockV2 is Administration {
     }
 
     /**
-     * @notice Can only be used by the lender to seize part of the collaeral if he has secretA1
+     * @notice Can be used after the loan expiration to seize part of the collateral (lender) and return the remainder to the borrower
      * @param _loanId The ID of the loan
      * @param _secretA1 Borrower's secretA1
      */
