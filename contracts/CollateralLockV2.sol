@@ -99,7 +99,7 @@ interface AggregatorInterface {
     );
 }
 
-contract CollateralLock is Administration {
+contract CollateralLockV2 is Administration {
     using SafeMath for uint256;
 
     // --- Data ---
@@ -278,20 +278,22 @@ contract CollateralLock is Administration {
 
         // Get latestPrice
         uint256 latestPrice = uint256(priceFeed.latestAnswer()).mul(1e10);
-        uint256 seizableCollateral =
-            loans[_loanId].collateralValue.div(latestPrice);
 
         // Update liquidation price
         loans[_loanId].liquidationPrice = latestPrice;
 
+        uint256 seizableCollateral =
+            loans[_loanId].collateralValue.div(latestPrice);
+        uint256 refundableCollateral =
+            loans[_loanId].collateral.sub(seizableCollateral);
+
         if (seizableCollateral > loans[_loanId].collateral) {
             seizableCollateral = loans[_loanId].collateral;
+            refundableCollateral = 0;
         }
 
-        // Substract seizable collateral
-        loans[_loanId].collateral = loans[_loanId].collateral.sub(
-            seizableCollateral
-        );
+        // Zero collateral
+        loans[_loanId].collateral = 0;
 
         // Update loan
         loans[_loanId].state = State.Seized;
@@ -299,47 +301,19 @@ contract CollateralLock is Administration {
         // Refund seized collateral to lender
         loans[_loanId].lender.transfer(seizableCollateral);
 
-        // Emit event
+        // Refund refundable collateral to borrower
+        loans[_loanId].borrower.transfer(refundableCollateral);
+
+        // Emit events
         emit SeizeCollateral(
             _loanId,
             loans[_loanId].lender,
             seizableCollateral
         );
-    }
-
-    /**
-     * @notice Unclock refundable collateral after seizure period
-     * @param _loanId The ID of the loan
-     */
-    function unlockRefundableCollateral(uint256 _loanId) public {
-        require(
-            now > loans[_loanId].seizureExpiration,
-            "CollateralLock/seizure-period-not-expired"
-        );
-        require(
-            loans[_loanId].state == State.Locked || loans[_loanId].state == State.Seized,
-            "CollateralLock/collateral-not-locked"
-        );
-        require(
-            loans[_loanId].collateral > 0,
-            "CollateralLock/invalid-collateral-amount"
-        );
-
-        uint256 collateral = loans[_loanId].collateral;
-
-        // Zero collateral amount
-        loans[_loanId].collateral = 0;
-
-        // Update loan state
-        loans[_loanId].state = State.Refunded;
-
-        // Refund collateral to borrower
-        loans[_loanId].borrower.transfer(collateral);
-
         emit UnlockRefundableCollateral(
             _loanId,
             loans[_loanId].borrower,
-            collateral
+            refundableCollateral
         );
     }
 
