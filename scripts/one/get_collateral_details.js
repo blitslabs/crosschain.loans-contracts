@@ -10,14 +10,8 @@ const {
     ONE_COLLATERAL_LOCK_CONTRACT,
 } = process.env
 
-const lockCollateral = async (
-    lender,
-    secretHashA1,
-    secretHashB1,
-    bCoinBorrowerAddress,
-    bCoinLoanId,
-    loansContractAddress,
-    amount
+const getCollateralDetails = async (
+    loanId
 ) => {
 
     // Connect to HTTP Provider
@@ -50,44 +44,19 @@ const lockCollateral = async (
     const options = { 
         gasPrice: 1000000000, 
         gasLimit: 6721900, 
-        value: (BigNumber(amount).multipliedBy(1e18)).toString()
      }
 
     try {
-        const response = await contract.methods.lockCollateral(
-            lender,
-            secretHashA1,
-            secretHashB1,
-            bCoinBorrowerAddress,
-            bCoinLoanId,
-            loansContractAddress
-        ).send(options)
+        const response = await contract.methods.fetchLoan(loanId).call()
         return response
     } catch (e) {
-        console.log(e)
         return { status: 'ERROR', message: e.message }
     }
 }
 
 start = async () => {
-
-    const lender = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
-    const secretHashA1 = '0x096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
-    const secretHashB1 = '0x096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
-    const bCoinBorrowerAddress = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
-    const bCoinLoanId = '1'
-    const loansContractAddress = '0xA92314Dc02992F1f658BB5694656DeD4F07db4Bb'
-    const amount = '100'
-
-    const response = await lockCollateral(
-        lender,
-        secretHashA1,
-        secretHashB1,
-        bCoinBorrowerAddress,
-        bCoinLoanId,
-        loansContractAddress,
-        amount
-    )
+    const loanId = '1'
+    const response = await getCollateralDetails(loanId)
     console.log(response)
 }
 
