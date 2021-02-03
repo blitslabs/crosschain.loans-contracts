@@ -56,7 +56,7 @@ const modifyPriceFeed = async (params, data) => {
 
 start = async () => {
     const params = 'priceFeed'
-    const data = '0x1bd58a5eCe4a00dB76395Fc11377ECFa8e4B0082'
+    const data = '0x4FF2B1648b25eE00B5dF351f37eE12A92E650d92'
     const response = await modifyPriceFeed(params, data)
     console.log(response)
 }

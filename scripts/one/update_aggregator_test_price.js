@@ -53,7 +53,7 @@ const updateAgreggatorPrice = async (price) => {
 }
 
 start = async () => {
-    const newPrice = '727375'
+    const newPrice = '845426'
     const response = await updateAgreggatorPrice(newPrice)
     console.log(response)
 }

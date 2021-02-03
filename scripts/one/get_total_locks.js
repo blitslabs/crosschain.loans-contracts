@@ -10,8 +10,8 @@ const {
     ONE_COLLATERAL_LOCK_CONTRACT,
 } = process.env
 
-const seizeCollateral = async (
-    loanId, secretHashA1
+const getTotalLocks = async (
+    
 ) => {
 
     // Connect to HTTP Provider
@@ -41,31 +41,21 @@ const seizeCollateral = async (
         return { status: 'ERROR', message: 'Error importing private key' }
     }
 
-    const options = {
-        gasPrice: 50000000000,
-        gasLimit: 6721900,
-    }
+    const options = { 
+        gasPrice: 1000000000, 
+        gasLimit: 6721900, 
+     }
 
     try {
-        const response = await contract.methods.seizeCollateral(
-            loanId, secretHashA1
-        ).send(options)
-        return response
+        const response = await contract.methods.loanIdCounter().call()
+        return parseInt(response)
     } catch (e) {
-        console.log(e)
         return { status: 'ERROR', message: e.message }
     }
 }
 
 start = async () => {
-
-    const loanId = '18'
-    const secretHashA1 = "0x37efd6b344de69561bf1245204b9332842996f9cc3b94449c0f2226c23d48260"
-
-    const response = await seizeCollateral(
-        loanId,
-        secretHashA1
-    )
+    const response = await getTotalLocks()
     console.log(response)
 }
 

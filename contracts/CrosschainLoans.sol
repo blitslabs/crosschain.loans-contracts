@@ -209,6 +209,8 @@ contract CrosschainLoans is Administration {
         address _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
+        require(_contractAddress != address(0), "CrosschainLoans/invalid-token-address");
+        require(_aCoinLenderAddress != address(0), "CrosschainLoans/invalid-acoin-address");
         require(
             assetTypes[_contractAddress].enabled == 1,
             "CrosschainLoans/asset-type-disabled"
@@ -295,6 +297,7 @@ contract CrosschainLoans is Administration {
                 msg.sender == loans[_loanId].lenderAuto,
             "CrosschainLoans/account-not-authorized"
         );
+        require(_borrower != address(0), "CrosschainLoans/invalid-borrower");
 
         // Add LoanId to user
         userLoans[_borrower].push(loanIdCounter);
@@ -323,7 +326,10 @@ contract CrosschainLoans is Administration {
      * @param _loanId The ID of the loan
      * @param _secretA1 Borrower's secret A1
      */
-    function withdraw(uint256 _loanId, bytes32 _secretA1) public {
+    function withdraw(uint256 _loanId, bytes32 _secretA1)
+        public
+        contractIsEnabled
+    {
         require(
             loans[_loanId].state == State.Approved,
             "CrosschainLoans/loan-not-approved"
@@ -365,7 +371,10 @@ contract CrosschainLoans is Administration {
      * @param _loanId The ID of the loan
      * @param _secretB1 Lender's secret B1
      */
-    function acceptRepayment(uint256 _loanId, bytes32 _secretB1) public {
+    function acceptRepayment(uint256 _loanId, bytes32 _secretB1)
+        public
+        contractIsEnabled
+    {
         require(
             sha256(abi.encodePacked(_secretB1)) ==
                 loans[_loanId].secretHashB1 ||
@@ -403,7 +412,7 @@ contract CrosschainLoans is Administration {
     function cancelLoanBeforePrincipalWithdraw(
         uint256 _loanId,
         bytes32 _secretB1
-    ) public {
+    ) public contractIsEnabled {
         require(
             sha256(abi.encodePacked(_secretB1)) ==
                 loans[_loanId].secretHashB1 ||
@@ -439,7 +448,7 @@ contract CrosschainLoans is Administration {
      * @notice Payback loan's principal and interest
      * @param _loanId The ID of the loan
      */
-    function payback(uint256 _loanId) public {
+    function payback(uint256 _loanId) public contractIsEnabled {
         require(
             loans[_loanId].state == State.Withdrawn,
             "CrosschainLoans/invalid-loan-state"
@@ -482,7 +491,7 @@ contract CrosschainLoans is Administration {
      * @notice Refund the payback amount
      * @param _loanId The ID of the loan
      */
-    function refundPayback(uint256 _loanId) public {
+    function refundPayback(uint256 _loanId) public contractIsEnabled {
         require(
             now > loans[_loanId].acceptExpiration,
             "CrosschainLoans/accept-period-not-expired"

@@ -8,22 +8,17 @@ const {
 } = process.env
 const LOANS_CONTRACT_ABI = (require('../../build/contracts/CrosschainLoans.json')).abi
 
-const addAssetType = async (
-    contractAddress,
-    maxLoanAmount, minLoanAmount,
-    baseRatePerYear,
-    multiplierPerYear
+const changeAcceptExpiration = async (
+    parameter,
+    data
 ) => {
     const web3 = new Web3(new Web3.providers.HttpProvider(ETH_HTTP_PROVIDER))
     const contract = new web3.eth.Contract(LOANS_CONTRACT_ABI, ETH_LOANS_CONTRACT, { from: ETH_PUBLIC_KEY })
     const nonce = await web3.eth.getTransactionCount(ETH_PUBLIC_KEY)
 
-    const data = await contract.methods.addAssetType(
-        contractAddress,
-        maxLoanAmount,
-        minLoanAmount,
-        baseRatePerYear,
-        multiplierPerYear,
+    const txData = await contract.methods.modifyLoanParameters(
+        web3.utils.fromAscii(parameter),
+        data
     ).encodeABI()
 
     const rawTx = {
@@ -34,7 +29,7 @@ const addAssetType = async (
         to: ETH_LOANS_CONTRACT,
         value: '0x0',
         chainId: ETH_CHAIN_ID,
-        data: data
+        data: txData
     }
 
     const tx = new Tx(rawTx, { chain: ETH_CHAIN_NAME })
@@ -51,18 +46,12 @@ const addAssetType = async (
 }
 
 const start = async () => {
-    const contractAddress = '0x5565505F5A5A491e0991fafb3926fE4D2593796F'
-    const maxLoanAmount = '1000000000000000000000' // 10000
-    const minLoanAmount = '100000000000000000000' // 20
-    const baseRatePerYear = '55000000000000000' // 0.055
-    const multiplierPerYear = '1100000000000000000' // 1.1
+    const parameter = 'acceptExpirationPeriod'
+    const data = '259200'
 
-    const response = await addAssetType(
-        contractAddress,
-        maxLoanAmount,
-        minLoanAmount,
-        baseRatePerYear,
-        multiplierPerYear
+    const response = await changeAcceptExpiration(
+        parameter,
+        data
     )
 
     console.log(response)

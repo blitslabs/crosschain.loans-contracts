@@ -63,9 +63,9 @@ const approveAllowance = async (
 
 const start = async () => {
 
-    const tokenContractAddress = '0x8ffDAb0C1e1264983BedB3692D6eE930B2488A68'
-    const spender = '0xc4525ae68B8F678e31d091a88D84b87cb41e979A'
-    const amount = '10000000000'
+    const tokenContractAddress = '0x5565505F5A5A491e0991fafb3926fE4D2593796F'
+    const spender = '0xA92314Dc02992F1f658BB5694656DeD4F07db4Bb'
+    const amount = '0'
     const gasLimit = '50000'
     const gasPrice = '80'
 

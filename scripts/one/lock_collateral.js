@@ -5,6 +5,7 @@ const COLLATERAL_LOCK_ABI = (require('../../build/contracts/CollateralLockV2.jso
 const { pad } = require('../utils/utils')
 const BigNumber = require('bignumber.js')
 const Web = require('web3')
+const { sha256 } = require('@liquality-dev/crypto')
 const {
     ONE_NETWORK, ONE_HTTP_PROVIDER, ONE_PRIVATE_KEY,
     ONE_COLLATERAL_LOCK_CONTRACT,
@@ -47,11 +48,11 @@ const lockCollateral = async (
         return { status: 'ERROR', message: 'Error importing private key' }
     }
 
-    const options = { 
-        gasPrice: 1000000000, 
-        gasLimit: 6721900, 
+    const options = {
+        gasPrice: 50000000000,
+        gasLimit: 6721900,
         value: (BigNumber(amount).multipliedBy(1e18)).toString()
-     }
+    }
 
     try {
         const response = await contract.methods.lockCollateral(
@@ -72,12 +73,14 @@ const lockCollateral = async (
 start = async () => {
 
     const lender = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
-    const secretHashA1 = '0x096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
-    const secretHashB1 = '0x096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
+    const secretA1 = '096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
+    const secretB1 = '096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
+    const secretHashA1 = `0x${sha256(secretA1)}`
+    const secretHashB1 = `0x${sha256(secretB1)}`
     const bCoinBorrowerAddress = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
-    const bCoinLoanId = '1'
+    const bCoinLoanId = '13'
     const loansContractAddress = '0xA92314Dc02992F1f658BB5694656DeD4F07db4Bb'
-    const amount = '100'
+    const amount = '206.221000172'
 
     const response = await lockCollateral(
         lender,

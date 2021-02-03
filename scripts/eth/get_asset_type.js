@@ -15,7 +15,7 @@ const getAssetType = async (contractAddress) => {
 }
 
 const start = async () => {
-    const contractAddress = '0x8ffDAb0C1e1264983BedB3692D6eE930B2488A68'
+    const contractAddress = '0x5565505F5A5A491e0991fafb3926fE4D2593796F'
     const response = await getAssetType(contractAddress)
     console.log(response)
 }

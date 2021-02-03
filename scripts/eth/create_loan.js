@@ -21,7 +21,7 @@ const createLoan = async (
     gasPrice,
     gasLimit
 ) => {
-   
+    
     const web3 = new Web3(new Web3.providers.HttpProvider(ETH_HTTP_PROVIDER))
     const contract = new web3.eth.Contract(LOANS_CONTRACT_ABI, ETH_LOANS_CONTRACT, { from: ETH_PUBLIC_KEY })
     const token = new web3.eth.Contract(ERC20_ABI, tokenContractAddress, { from: ETH_PUBLIC_KEY })
@@ -29,7 +29,7 @@ const createLoan = async (
     const decimals = await token.methods.decimals().call()    
     let allowance = await token.methods.allowance(ETH_PUBLIC_KEY, ETH_LOANS_CONTRACT).call()
     allowance = parseFloat(BigNumber(allowance).div(pad(1, decimals)))
-
+    
     // Encode Gas
     gasLimit = web3.utils.toHex(gasLimit)
     gasPrice = web3.utils.toHex((new BigNumber(gasPrice).multipliedBy(1000000000)).toString())
@@ -79,8 +79,8 @@ const start = async () => {
     const lenderAuto = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
     const secretHashB1 = '0xf8232c8d6108b20a2a0e8b0b66dbb70d2fd5203012f17567583a9a6cd3a6c702'
     const secretHashAutoB1 = '0xf8232c8d6108b20a2a0e8b0b66dbb70d2fd5203012f17567583a9a6cd3a6c702'
-    const principal = '101'
-    const tokenContractAddress = '0x8ffDAb0C1e1264983BedB3692D6eE930B2488A68'
+    const principal = '1'
+    const tokenContractAddress = '0x5565505F5A5A491e0991fafb3926fE4D2593796F'
     const aCoinLenderAddress = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
     const gasPrice = '100'
     const gasLimit = '3000000'

@@ -55,7 +55,7 @@ const getCollateralDetails = async (
 }
 
 start = async () => {
-    const loanId = '1'
+    const loanId = '18'
     const response = await getCollateralDetails(loanId)
     console.log(response)
 }

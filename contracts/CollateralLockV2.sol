@@ -125,7 +125,7 @@ contract CollateralLockV2 is Administration {
         // Borrower's bCoin address
         address bCoinBorrowerAddress;
         uint256 bCoinLoanId;
-        bytes32 bCoin;
+        address loansContractAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
@@ -158,7 +158,7 @@ contract CollateralLockV2 is Administration {
      * @param _secretHashB1 secretB1's hash
      * @param _bCoinBorrowerAddress Borrowers address in bCoin's blockchain
      * @param _bCoinLoanId LoanId in bCoin
-     * @param _bCoin bCoin's blockchain
+     * @param _loansContractAddress bCoin's loans contract address
      */
     function lockCollateral(
         address payable _lender,
@@ -166,7 +166,7 @@ contract CollateralLockV2 is Administration {
         bytes32 _secretHashB1,
         address _bCoinBorrowerAddress,
         uint256 _bCoinLoanId,
-        bytes32 _bCoin
+        address _loansContractAddress
     ) public payable {
         require(msg.value > 0, "CollateralLock/invalid-collateral-amount");
         int256 latestAnswer = priceFeed.latestAnswer();
@@ -188,7 +188,7 @@ contract CollateralLockV2 is Administration {
             lender: _lender,
             bCoinBorrowerAddress: _bCoinBorrowerAddress,
             bCoinLoanId: _bCoinLoanId,
-            bCoin: _bCoin,
+            loansContractAddress: _loansContractAddress,
             secretHashA1: _secretHashA1,
             secretHashB1: _secretHashB1,
             secretA1: "",
@@ -213,7 +213,9 @@ contract CollateralLockV2 is Administration {
             msg.sender,
             _lender,
             msg.value,
-            collateralValue
+            collateralValue,
+            _bCoinLoanId,
+            _loansContractAddress
         );
     }
 
@@ -333,7 +335,7 @@ contract CollateralLockV2 is Administration {
             uint256[2] memory expirations,
             uint256[4] memory details,
             uint256 bCoinLoanId,
-            bytes32 bCoin,
+            address loansContractAddress,
             State state
         )
     {
@@ -353,12 +355,12 @@ contract CollateralLockV2 is Administration {
         ];
         details = [
             loans[_loanId].collateral,
-            loans[_loanId].collateralValue,
+            loans[_loanId].collateralValue / 1e18,
             loans[_loanId].lockPrice,
             loans[_loanId].liquidationPrice
         ];
         bCoinLoanId = loans[_loanId].bCoinLoanId;
-        bCoin = loans[_loanId].bCoin;
+        loansContractAddress = loans[_loanId].loansContractAddress;
         state = loans[_loanId].state;
     }
 
@@ -400,7 +402,9 @@ contract CollateralLockV2 is Administration {
         address borrower,
         address lender,
         uint256 collateral,
-        uint256 collateralValue
+        uint256 collateralValue,
+        uint256 bCoinLoanId,
+        address loansContractAddress
     );
     event UnlockAndClose(uint256 loanId, address borrower, uint256 collateral);
     event SeizeCollateral(uint256 loanId, address lender, uint256 amount);

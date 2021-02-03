@@ -27,9 +27,25 @@ module.exports = {
     // options below to some value.
     //
     development: {
-     host: "127.0.0.1",     // Localhost (default: none)
-     port: 7545,            // Standard Ethereum port (default: none)
-     network_id: "*",       // Any network (default: none)
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 7545,            // Standard Ethereum port (default: none)
+      network_id: "*",       // Any network (default: none)
+    },
+    eth_mainnet: {
+      network_id: 1,
+      // gas: 7897368,
+      gasLimit: 350000,
+      gasPrice: 80000000000,
+      provider: new HDWalletProvider(eth_private_key, eth_provider)
+    },
+    ropsten: {
+      network_id: 3,
+      gas: 6500000,
+      gasPrice: 109000000000,
+      confirmations: 0,
+      timeoutBlocks: 200,
+      skipDryRun: false,  
+      provider: new HDWalletProvider(eth_private_key, eth_provider)
     },
     rinkeby: {
       network_id: 4,
@@ -44,6 +60,21 @@ module.exports = {
           harmony_provider,
           { memonic: harmony_mnemonic },
           { shardID: 0, chainId: 1 },
+          // { gasLimit: oneGasLimit, gasPrice: oneGasPrice},
+        );
+        const newAcc = truffleProvider.addByPrivateKey(harmony_private_key);
+        truffleProvider.setSigner(newAcc);
+        return truffleProvider;
+      },
+    },
+    one_test: {
+      network_id: "2",
+      timeoutBlocks: 50000,
+      provider: () => {
+        const truffleProvider = new TruffleProvider(
+          harmony_provider,
+          { memonic: harmony_mnemonic },
+          { shardID: 0, chainId: 2 },
           // { gasLimit: oneGasLimit, gasPrice: oneGasPrice},
         );
         const newAcc = truffleProvider.addByPrivateKey(harmony_private_key);
@@ -78,6 +109,8 @@ module.exports = {
     // }
   },
 
+  plugins: ["truffle-contract-size"],
+
   // Set default mocha options here, use special reporters etc.
   mocha: {
     // timeout: 100000
@@ -88,13 +121,13 @@ module.exports = {
     solc: {
       version: "0.6.2",    // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-      // settings: {          // See the solidity docs for advice about optimization and evmVersion
-      //  optimizer: {
-      //    enabled: false,
-      //    runs: 200
-      //  },
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+       optimizer: {
+         enabled: true,
+         runs: 200
+       },
       //  evmVersion: "byzantium"
-      // }
+      }
     },
   },
 };

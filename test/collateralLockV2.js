@@ -33,6 +33,7 @@ contract('CollateralLockV2', async () => {
     const owner_2 = owner2Wallet.address
     const aCoinLender = aCoinLenderWallet.address
     const bCoinBorrower = bCoinBorrowerWallet.address
+    const loansContractAddress = '0x0D514ED38Fd4E45a2f9Ac8cD3293b74D7ceB0523'
 
     // private keys
     const lenderPrivateKey = lenderWallet.privateKey
@@ -147,7 +148,7 @@ contract('CollateralLockV2', async () => {
     })
 
     describe('Loan Parameters', () => {
-        it('should modifyLoanParameters', async () => {            
+        it('should modifyLoanParameters', async () => {
             const param1 = 'loanExpirationPeriod'
             const data1 = '1000'
             const param2 = 'collateralizationRatio'
@@ -256,7 +257,7 @@ contract('CollateralLockV2', async () => {
                 secretHashB1,
                 bCoinBorrower,
                 bCoinLoanId,
-                bCoin,
+                loansContractAddress,
                 { from: borrower, value: collateral }
             )
 
@@ -273,13 +274,13 @@ contract('CollateralLockV2', async () => {
             assert.equal(loan.expirations[0], loanExpiration, 'Invalid loanExpiration')
             assert.equal(loan.expirations[1], currentTimestamp, 'Invalid createdAt')
             assert.equal(loan.details[0].toString(), collateral, 'Invalid collateral')
-            assert.equal(loan.details[1].toString(), collateralValue, 'Invalid collateral value')
+            assert.equal(loan.details[1].toString(), fromExponential(collateralValue), 'Invalid collateral value')
             assert.equal(loan.details[2].toString(), lockPrice, 'Invalid lockPrice')
             assert.equal(loan.details[3].toString(), lockPrice, 'Invalid liquidationPrice')
             assert.equal(loan.state, '0', 'Invalid loan state')
             assert.equal(loan.actors[2], bCoinBorrower, 'Invalid borrower\'s bCoin Address')
             assert.equal(loan.bCoinLoanId, '1', 'Invalid bCoin Loan ID')
-            assert.equal(web3.utils.toUtf8(loan.bCoin).toString(), 'ethereum', 'Invalid bCoin')
+            assert.equal(loan.loansContractAddress, loansContractAddress, 'Invalid bCoin')
         })
 
         it('should fail to lock collateral is amount is invalid', async () => {
@@ -303,7 +304,7 @@ contract('CollateralLockV2', async () => {
                     secretHashB1,
                     bCoinBorrower,
                     bCoinLoanId,
-                    bCoin,
+                    loansContractAddress,
                     { from: borrower, value: collateral }
                 ),
                 "CollateralLock/invalid-collateral-amount",
@@ -336,12 +337,12 @@ contract('CollateralLockV2', async () => {
                 secretHashB1,
                 bCoinBorrower,
                 bCoinLoanId,
-                bCoin,
+                loansContractAddress,
                 { from: borrower, value: collateral }
             )
         })
 
-        it('should unlock collateral', async () => {            
+        it('should unlock collateral', async () => {
             let loan = await collateralLock.fetchLoan(1)
             const collateral = loan.details[0].toString()
             const initialBalance = await web3.eth.getBalance(borrower)
@@ -408,12 +409,12 @@ contract('CollateralLockV2', async () => {
                 secretHashB1,
                 bCoinBorrower,
                 bCoinLoanId,
-                bCoin,
+                loansContractAddress,
                 { from: borrower, value: collateral }
             )
         })
 
-        it('should seize collateral', async () => {            
+        it('should seize collateral', async () => {
             await helper.advanceTimeAndBlock(SECONDS_IN_DAY * 34)
 
             // Initial Loan & Balance
@@ -434,7 +435,7 @@ contract('CollateralLockV2', async () => {
             // Final Loan & Balance
             const lenderFinalBalance = await web3.eth.getBalance(aCoinLender)
             const borrowerFinalBalance = await web3.eth.getBalance(borrower)
-            const gas = '1373260000000000'
+            const gas = '1371800000000000'
             const testLenderFinalBalance = BigNumber(seizableCollateral.toString()).plus(lenderInitialBalance.toString()).minus(gas)
             const testBorrowerFinalBalance = BigNumber(refundableCollateral.toString()).plus(borrowerInitialBalance.toString())
             const loan_final = await collateralLock.fetchLoan(1)

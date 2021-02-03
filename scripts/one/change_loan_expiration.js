@@ -1,27 +1,22 @@
 require('dotenv').config()
+const Web3 = require('web3')
 const { Harmony } = require('@harmony-js/core')
-const { ChainID, ChainType, hexToNumber } = require('@harmony-js/utils')
+const { ChainID, ChainType } = require('@harmony-js/utils')
 const COLLATERAL_LOCK_ABI = (require('../../build/contracts/CollateralLockV2.json')).abi
-const { pad } = require('../utils/utils')
 const BigNumber = require('bignumber.js')
-const Web = require('web3')
 const {
     ONE_NETWORK, ONE_HTTP_PROVIDER, ONE_PRIVATE_KEY,
-    ONE_COLLATERAL_LOCK_CONTRACT,
+    ONE_COLLATERAL_LOCK_CONTRACT, ONE_PUBLIC_KEY
 } = process.env
 
-const seizeCollateral = async (
-    loanId, secretHashA1
-) => {
-
-    // Connect to HTTP Provider
+const modifyLoanExpiration = async (params, data) => {
+    // Connect HTTP Provider
     let hmy
     try {
         hmy = new Harmony(ONE_HTTP_PROVIDER, { chainType: ChainType.Harmony, chainId: ONE_NETWORK === 'mainnet' ? ChainID.HmyMainnet : ChainID.HmyTestnet })
     } catch (e) {
         console.log(e)
-        sendJSONresponse(res, 422, { status: 'ERROR', message: 'Error connecting to Harmony HTTP Provider' })
-        return
+        return { status: 'ERROR', message: 'Error connecting to Harmony HTTP Provider' }
     }
 
     // Instantiate Collateral Lock contract
@@ -30,42 +25,39 @@ const seizeCollateral = async (
         contract = hmy.contracts.createContract(COLLATERAL_LOCK_ABI, ONE_COLLATERAL_LOCK_CONTRACT)
     } catch (e) {
         console.log(e)
-        sendJSONresponse(res, 422, { status: 'ERROR', message: 'An error occurred, please try again' })
-        return
+        return { status: 'ERROR', message: 'Error intantiating contract' }
     }
 
     // Add Private Key
     try {
         contract.wallet.addByPrivateKey(ONE_PRIVATE_KEY)
     } catch (e) {
-        return { status: 'ERROR', message: 'Error importing private key' }
+        return { status: 'ERROR', message: 'Error improting private key' }
     }
-
+    
     const options = {
-        gasPrice: 50000000000,
+        gasPrice: 1000000000,
         gasLimit: 6721900,
     }
 
+    const web3 = new Web3()
+    params = web3.utils.fromAscii(params)
+
     try {
-        const response = await contract.methods.seizeCollateral(
-            loanId, secretHashA1
+        const response = await contract.methods.modifyLoanParameters(
+            params, data
         ).send(options)
         return response
     } catch (e) {
         console.log(e)
-        return { status: 'ERROR', message: e.message }
+        return { status: 'ERROR', message: 'message' in e ? e.message : 'Error sending transaction' }
     }
 }
 
 start = async () => {
-
-    const loanId = '18'
-    const secretHashA1 = "0x37efd6b344de69561bf1245204b9332842996f9cc3b94449c0f2226c23d48260"
-
-    const response = await seizeCollateral(
-        loanId,
-        secretHashA1
-    )
+    const params = 'loanExpirationPeriod'
+    const data = '2851200'
+    const response = await modifyLoanExpiration(params, data)
     console.log(response)
 }
 

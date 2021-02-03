@@ -59,7 +59,7 @@ const unlockCollateral = async (
 
 start = async () => {
 
-    const loanId = '1'
+    const loanId = '2'
     const secretHashB1 = '0x096c003de78e924c665c1a476a0bcf102d74605a7892216e37a84ccf05dd30e4'
 
     const response = await unlockCollateral(
