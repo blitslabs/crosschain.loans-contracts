@@ -17,12 +17,12 @@ const SECONDS_IN_DAY = 86400
 contract('CrosschainLoans', async () => {
 
     const accounts = [
-        { publicKey: '0xb9c0c8030424F35C9f02B87a4D5AFbeA9E68460D', privateKey: '50d9c881bcdf4ee661e669fd1a6c172c054edcfe82d8c6d688600aa6bd80b5db' },
-        { publicKey: '0x70b5A7c13a9b1C5b6e91Eb55663AEfB31257C29e', privateKey: '9e8a0fd8d4d1b56a1ffdc2679405214a562a59f88b1c6b966168e37dcb34501f' },
-        { publicKey: '0xDe76C6C465a22edB55E124C6e9fFD1C6E7a70cf0', privateKey: 'ae189b9846653282c525d99a24bf6051b0fdb2345a9d1f1185e4b1e866c370c8' },
-        { publicKey: '0xef96aFA86BB55a15c75BAc2eD2dC41084A007565', privateKey: 'b3348d15368cdeeb47a6f65b31a039463992991f2ac548f9ac9203f27bffdc3f' },
-        { publicKey: '0x8c6CC5451F3aacE8320F92E66fF6E28D1e74c6D9', privateKey: 'c110306a205cc2d4b629ec18e66279be87b537aecb4d4580cf9a57b2ad165f72' },
-        { publicKey: '0xB3137b02d838DFCc83d6476dd5Ba018415E766AA', privateKey: 'b66320d3e678896c117f98b22f9b404c280f0ed9cd036ebebe3233b99d8f9f7e' },
+        { publicKey: '0x0ca393e41D69CFDEF6ac138394D294f2D97167bC', privateKey: 'c0e5c1be0d1c967c2018b94a302ae347f4e63f7947cbbf8001d642c6e28f105f' },
+        { publicKey: '0x4C13192230be1f88550248c296A7d0977eA65aFF', privateKey: '275937d9c5de1495a76cc104009a8068121e56b828160d54e8ea7ec1bc68014f' },
+        { publicKey: '0xc61b570384C4e2cCbF28bcf603f853F5A10be574', privateKey: '815d05fb255d6f4b9f4e8298e49f97cf8434ffa1fc3c54edc28456b6d2bce704' },
+        { publicKey: '0x04909F374465E5846EB762f2b59044A28FB614c1', privateKey: '7465173f9e93d9d2cb6bebe944dba1ac5b45dd727310a4eb8a302222bd20cfca' },
+        { publicKey: '0x92C20CF90703d138eB249406A0440bE959EE5046', privateKey: '6a95411904550561a446275edf26e07517851765593f0fe15663d241df21c0a2' },
+        { publicKey: '0x1FF0F3f023345F33e12301D14e7Fe0b46Ce578e0', privateKey: '399ae484428ae760d821d3c98de876b69ce4b555145f4efe3c20dba4c542b796' },
     ]
 
     // accounts
@@ -47,6 +47,7 @@ contract('CrosschainLoans', async () => {
     const maxLoanAmount = '10000000000000000000000'
     const baseRatePerYear = '55000000000000000' // 0.05
     const multiplierPerYear = '1000000000000000000' // 1.2
+    const referralFees = '200000000000000000'
 
     // Globals
     const secondsPerYear = 31556952
@@ -174,7 +175,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             await crosschainLoans.addAssetType(
@@ -182,7 +184,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             const assetType = await crosschainLoans.getAssetType(token.address)
@@ -210,7 +213,8 @@ contract('CrosschainLoans', async () => {
                     maxLoanAmount,
                     minLoanAmount,
                     baseRatePerYear,
-                    multiplierPerYear
+                    multiplierPerYear,
+                    referralFees
                 ),
                 'CrosschainLoans/contract-not-enabled',
                 'Shouldn\'t be able to add AssetType if contract is disabled'
@@ -225,6 +229,7 @@ contract('CrosschainLoans', async () => {
                     minLoanAmount,
                     baseRatePerYear,
                     multiplierPerYear,
+                    referralFees,
                     { from: owner_2 }
                 ),
                 'CrosschainLoans/account-not-authorized',
@@ -238,7 +243,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
             await crosschainLoans.disableAssetType(token.address)
             const assetType = await crosschainLoans.getAssetType(token.address)
@@ -255,7 +261,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
             await truffleAssert.reverts(
                 crosschainLoans.disableAssetType(token.address, { from: owner_2 }),
@@ -270,7 +277,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
             await crosschainLoans.disableContract({ from: owner })
             await truffleAssert.reverts(
@@ -286,7 +294,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
             await crosschainLoans.disableAssetType(token.address)
             await crosschainLoans.enableAssetType(token.address)
@@ -304,7 +313,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
             await crosschainLoans.disableAssetType(token.address)
             await truffleAssert.reverts(
@@ -323,7 +333,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
         })
 
@@ -531,7 +542,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
         })
 
@@ -840,7 +852,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash
@@ -971,7 +984,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash
@@ -1086,7 +1100,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash
@@ -1204,7 +1219,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash
@@ -1348,7 +1364,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash
@@ -1527,7 +1544,8 @@ contract('CrosschainLoans', async () => {
                 maxLoanAmount,
                 minLoanAmount,
                 baseRatePerYear,
-                multiplierPerYear
+                multiplierPerYear,
+                referralFees
             )
 
             // Lender secret / secretHash

@@ -19,6 +19,7 @@ contract AssetTypes is Administration {
         uint256 multiplierPerPeriod;
         uint256 enabled;
         address contractAddress;
+        uint256 referralFees;
     }
 
     // Data about each asset type
@@ -77,7 +78,8 @@ contract AssetTypes is Administration {
             uint256 multiplierPerPeriod,
             uint256 interestRate,
             uint256 enabled,
-            address contractAddress
+            address contractAddress,
+            uint256 referralFees
         )
     {
         maxLoanAmount = assetTypes[_contractAddress].maxLoanAmount;
@@ -89,6 +91,7 @@ contract AssetTypes is Administration {
         interestRate = getAssetInterestRate(_contractAddress);
         enabled = assetTypes[_contractAddress].enabled;
         contractAddress = assetTypes[_contractAddress].contractAddress;
+        referralFees = assetTypes[_contractAddress].referralFees;
     }
 
     /**
@@ -104,7 +107,8 @@ contract AssetTypes is Administration {
         uint256 _maxLoanAmount,
         uint256 _minLoanAmount,
         uint256 _baseRatePerYear,
-        uint256 _multiplierPerYear
+        uint256 _multiplierPerYear,
+        uint256 _referralFees
     ) external isAuthorized contractIsEnabled {
         require(_contractAddress != address(0));
         require(_maxLoanAmount > 0, "CrosschainLoans/invalid-maxLoanAmount");
@@ -126,7 +130,8 @@ contract AssetTypes is Administration {
                 .div(secondsPerYear),
             enabled: 1,
             supply: 0,
-            demand: 0
+            demand: 0,
+            referralFees: _referralFees
         });
         emit AddAssetType(_contractAddress, _maxLoanAmount, _minLoanAmount);
     }
@@ -160,6 +165,8 @@ contract AssetTypes is Administration {
             assetTypes[_contractAddress].multiplierPerPeriod = _data
                 .mul(loanExpirationPeriod)
                 .div(secondsPerYear);
+        } else if (_parameter == "referralFees") {
+            assetTypes[_contractAddress].referralFees = _data;
         } else revert("CrosschainLoans/modify-unrecognized-param");
         emit ModifyAssetTypeLoanParameters(_parameter, _data);
     }

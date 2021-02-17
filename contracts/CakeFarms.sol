@@ -4,6 +4,7 @@ import "./interfaces/IBEP20.sol";
 
 interface MasterChef {
     function deposit(uint256 _pid, uint256 _amount) external;
+
     function withdraw(uint256 _pid, uint256 _amount) external;
 }
 
@@ -57,23 +58,27 @@ contract CakeFarms is AssetTypes {
         poolBalances[_pid] = poolBalances[_pid].sub(_amount);
     }
 
-    function getRewards(uint256 _principal, address _token)
-        public
-        view
-        returns (uint256)
-    {
+    function payCakeRewards(
+        uint256 _principal,
+        address _token,
+        address _lender
+    ) internal returns (uint256) {
         uint256 pid = getFarmPID(_token);
+        uint256 poolBalance = poolBalances[pid];
 
-        // Calculate principal share
-        uint256 totalBalance = poolBalances[pid];
-        uint256 share = 0;
+        // Withdraw loan principal from CAKE pool
+        removePoolBalance(pid, _principal);
 
-        if (totalBalance > 0) {
-            share = _principal.mul(pancake.balanceOf(address(this))).div(
-                totalBalance
-            );
+        uint256 cakeShare = 0;
+        uint256 cakeTotalBalance = pancake.balanceOf(address(this));
+
+        if (poolBalance > 0) {
+            cakeShare = _principal.mul(cakeTotalBalance).div(poolBalance);
         }
 
-        return share;
+        // Send CAKE rewards
+        if (cakeShare > 0) {
+            pancake.transfer(_lender, cakeShare);
+        }
     }
 }

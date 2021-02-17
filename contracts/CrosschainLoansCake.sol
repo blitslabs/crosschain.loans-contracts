@@ -3,8 +3,9 @@ import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./AssetTypes.sol";
 import "./CakeFarms.sol";
+import "./Referrer.sol";
 
-contract CrosschainLoansCake is CakeFarms {
+contract CrosschainLoansCake is CakeFarms, Referrer {
     using SafeMath for uint256;
 
     // --- Loans Data ---
@@ -29,7 +30,6 @@ contract CrosschainLoansCake is CakeFarms {
         address payable borrower;
         address payable lender;
         address lenderAuto;
-        address payable referrer;
         // Lender's aCoin address
         address aCoinLenderAddress;
         // Hashes
@@ -78,8 +78,7 @@ contract CrosschainLoansCake is CakeFarms {
         // loan details
         uint256 _principal,
         address _contractAddress,
-        address _aCoinLenderAddress,
-        address payable _referrer
+        address _aCoinLenderAddress
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
         require(
@@ -90,7 +89,6 @@ contract CrosschainLoansCake is CakeFarms {
             _aCoinLenderAddress != address(0),
             "CrosschainLoans/invalid-acoin-address"
         );
-        require(_referrer != address(0), "CrosschainLoans/invalid-referrer");
         require(
             assetTypes[_contractAddress].enabled == 1,
             "CrosschainLoans/asset-type-disabled"
@@ -124,7 +122,6 @@ contract CrosschainLoansCake is CakeFarms {
             lender: msg.sender,
             lenderAuto: _lenderAuto,
             aCoinLenderAddress: _aCoinLenderAddress,
-            referrer: _referrer, // Secret Hashes
             secretHashA1: "",
             secretHashB1: _secretHashB1,
             secretHashAutoB1: _secretHashAutoB1,
@@ -156,6 +153,38 @@ contract CrosschainLoansCake is CakeFarms {
 
         emit LoanCreated(loanIdCounter);
         return loanIdCounter;
+    }
+
+    /**
+     * @notice Create a loan offer
+     * @param _lenderAuto Address of auto lender
+     * @param _secretHashB1 Hash of the secret B1
+     * @param _secretHashAutoB1 Hash fo the secret B1 of auto lender
+     * @param _principal Principal of the loan
+     * @param _contractAddress The contract address of the ERC20 token
+     * @param _referrer Lender's referrer
+     */
+    function createLoan(
+        // actors
+        address _lenderAuto,
+        // secret hashes
+        bytes32 _secretHashB1,
+        bytes32 _secretHashAutoB1,
+        // loan details
+        uint256 _principal,
+        address _contractAddress,
+        address _aCoinLenderAddress,
+        address _referrer
+    ) public contractIsEnabled returns (uint256 loanId) {
+        saveReferrer(_referrer);
+        loanId = createLoan(
+            _lenderAuto,
+            _secretHashB1,
+            _secretHashAutoB1,
+            _principal,
+            _contractAddress,
+            _aCoinLenderAddress
+        );
     }
 
     /**
@@ -232,23 +261,11 @@ contract CrosschainLoansCake is CakeFarms {
             masterChefEnabled &&
             isFarmEnabled(loans[_loanId].contractAddress) == true
         ) {
-            // Get CAKE rewards
-            uint256 cake =
-                getRewards(
-                    loans[_loanId].principal,
-                    loans[_loanId].contractAddress
-                );
-
-            // Withdraw loan principal from CAKE pool
-            removePoolBalance(
-                getFarmPID(loans[_loanId].contractAddress),
-                loans[_loanId].principal
+            payCakeRewards(
+                loans[_loanId].principal,
+                loans[_loanId].contractAddress,
+                loans[_loanId].lender
             );
-
-            if (cake > 0) {
-                // Send CAKE rewards
-                pancake.transfer(loans[_loanId].lender, cake);
-            }
         }
 
         // Transfer principal to Borrower
@@ -300,13 +317,37 @@ contract CrosschainLoansCake is CakeFarms {
         loans[_loanId].state = State.Closed;
         loans[_loanId].secretB1 = _secretB1;
 
+        // Referal Fees
+        address referrer = getReferrer(msg.sender);
         uint256 repayment =
             loans[_loanId].principal.add(loans[_loanId].interest);
+
+        if (referrer != address(0)) {
+            uint256 referralFees =
+                loans[_loanId]
+                    .interest
+                    .mul(
+                    assetTypes[loans[_loanId].contractAddress]
+                        .referralFees
+                )
+                    .div(1e18);
+            repayment = repayment.sub(referralFees);
+
+            require(
+                loans[_loanId].token.transfer(referrer, referralFees),
+                "CrosschainLoans/ref-fees-transfer-failed"
+            );
+            emit PayReferrer(
+                msg.sender,
+                referrer,
+                loans[_loanId].contractAddress,
+                referralFees
+            );
+        }
         require(
             loans[_loanId].token.transfer(loans[_loanId].lender, repayment),
             "CrosschainLoans/token-transfer-failed"
         );
-
         emit LoanRepaymentAccepted(_loanId, repayment, loans[_loanId].state);
     }
 
@@ -332,8 +373,9 @@ contract CrosschainLoansCake is CakeFarms {
                 loans[_loanId].state == State.Approved,
             "CrosschainLoans/principal-withdrawn"
         );
-        loans[_loanId].state = State.Canceled;
+
         uint256 principal = loans[_loanId].principal;
+        loans[_loanId].state = State.Canceled;
         loans[_loanId].principal = 0;
         loans[_loanId].secretB1 = _secretB1;
 
@@ -342,6 +384,18 @@ contract CrosschainLoansCake is CakeFarms {
         assetTypes[contractAddress].supply = assetTypes[contractAddress]
             .supply
             .sub(loans[_loanId].principal);
+
+        // Get token farm PID
+        if (
+            masterChefEnabled &&
+            isFarmEnabled(loans[_loanId].contractAddress) == true
+        ) {
+            payCakeRewards(
+                principal,
+                loans[_loanId].contractAddress,
+                loans[_loanId].lender
+            );
+        }
 
         require(
             loans[_loanId].token.transfer(loans[_loanId].lender, principal),
