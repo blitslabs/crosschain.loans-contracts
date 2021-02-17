@@ -62,7 +62,7 @@ contract CakeFarms is AssetTypes {
         uint256 _principal,
         address _token,
         address _lender
-    ) internal returns (uint256) {
+    ) internal {
         uint256 pid = getFarmPID(_token);
         uint256 poolBalance = poolBalances[pid];
 
