@@ -34,7 +34,7 @@ const modifyPriceFeed = async (params, data) => {
     } catch (e) {
         return { status: 'ERROR', message: 'Error improting private key' }
     }
-    
+
     const options = {
         gasPrice: 1000000000,
         gasLimit: 6721900,
@@ -50,13 +50,13 @@ const modifyPriceFeed = async (params, data) => {
         return response
     } catch (e) {
         console.log(e)
-        return { status: 'ERROR', message: 'message' in e ? e.message : 'Error sending transaction' }
+        return { status: 'ERROR', message: e ? e : 'Error sending transaction' }
     }
 }
 
 start = async () => {
     const params = 'priceFeed'
-    const data = '0x4FF2B1648b25eE00B5dF351f37eE12A92E650d92'
+    const data = '0x18942C9b956b53e11f2122d2976E84630985Df7A'
     const response = await modifyPriceFeed(params, data)
     console.log(response)
 }

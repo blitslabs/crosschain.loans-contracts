@@ -6,7 +6,7 @@ var AggregatorTest = artifacts.require('AggregatorTest');
 module.exports = function (deployer) {
     // deployment steps
     // deployer.deploy(DAI);
-    deployer.deploy(CrosschainLoans);
-    // deployer.deploy(CollateralLockV2);
-    // deployer.deploy(AggregatorTest);
+    // deployer.deploy(CrosschainLoans);
+    deployer.deploy(CollateralLockV2);
+    deployer.deploy(AggregatorTest);
 };

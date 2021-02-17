@@ -17,12 +17,12 @@ const SECONDS_IN_DAY = 86400
 contract('CrosschainLoans', async () => {
 
     const accounts = [
-        { publicKey: '0x22bB5f99F20Aa8D7b60FC610e2b23FC5d7a9787b', privateKey: '17bbbcfdcec00560e75d52e1805c05d58b7097c06223d28c482d356a31d79657' },
-        { publicKey: '0x211996105611DB4F2877B8A5B4E5C7821950FEae', privateKey: '8f1267654dff6d2894088c65b64785582d5af6050d40f3ffb0bf7a131fd8071a' },
-        { publicKey: '0x38924D978F0424D4305e4b6643B8D63403956492', privateKey: '5ec6964598e05519c5d296a1a5a250cefe556bdfb34fe36a5866d50bac9421ca' },
-        { publicKey: '0x13F187ba6Ff51cbd507bd3873d45eB11f620bbB3', privateKey: '78325f6e999a357268bc3ca0fcafa83973a52ee4a0c2dad923350a8c6c64c343' },
-        { publicKey: '0xb383a668A4163F97EaC61802b996DCAef4Bc0796', privateKey: '94cfa3bc419d0569eb25c96369e52d94991c8346952c28459bed15423443140e' },
-        { publicKey: '0x4a2fD5b28AB34550F72B0560d38627D73e560d53', privateKey: '542acdba3e4cf1050baa4523cae0928e0c23d586844e8548171bc68b5cf0fc7e' },
+        { publicKey: '0xb9c0c8030424F35C9f02B87a4D5AFbeA9E68460D', privateKey: '50d9c881bcdf4ee661e669fd1a6c172c054edcfe82d8c6d688600aa6bd80b5db' },
+        { publicKey: '0x70b5A7c13a9b1C5b6e91Eb55663AEfB31257C29e', privateKey: '9e8a0fd8d4d1b56a1ffdc2679405214a562a59f88b1c6b966168e37dcb34501f' },
+        { publicKey: '0xDe76C6C465a22edB55E124C6e9fFD1C6E7a70cf0', privateKey: 'ae189b9846653282c525d99a24bf6051b0fdb2345a9d1f1185e4b1e866c370c8' },
+        { publicKey: '0xef96aFA86BB55a15c75BAc2eD2dC41084A007565', privateKey: 'b3348d15368cdeeb47a6f65b31a039463992991f2ac548f9ac9203f27bffdc3f' },
+        { publicKey: '0x8c6CC5451F3aacE8320F92E66fF6E28D1e74c6D9', privateKey: 'c110306a205cc2d4b629ec18e66279be87b537aecb4d4580cf9a57b2ad165f72' },
+        { publicKey: '0xB3137b02d838DFCc83d6476dd5Ba018415E766AA', privateKey: 'b66320d3e678896c117f98b22f9b404c280f0ed9cd036ebebe3233b99d8f9f7e' },
     ]
 
     // accounts
@@ -747,8 +747,8 @@ contract('CrosschainLoans', async () => {
                     aCoinLender,
                     { from: lender }
                 ),
-                "CrosschainLoans/asset-type-disabled",
-                "Loan shouldn\'t be created if AssetType is disabled"
+                "CrosschainLoans/invalid-token-address",
+                "Loan shouldn\'t be created if token address is invalid"
             )
         })
 
