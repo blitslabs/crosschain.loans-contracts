@@ -79,6 +79,9 @@ contract CakeFarms is AssetTypes {
         // Send CAKE rewards
         if (cakeShare > 0) {
             pancake.transfer(_lender, cakeShare);
+            emit PayCakeRewards(_lender, _token, cakeShare);
         }
     }
+
+    event PayCakeRewards(address _lender,  _token, _amount);
 }
