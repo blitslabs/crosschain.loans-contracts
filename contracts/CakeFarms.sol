@@ -83,5 +83,5 @@ contract CakeFarms is AssetTypes {
         }
     }
 
-    event PayCakeRewards(address _lender,  _token, _amount);
+    event PayCakeRewards(address _lender, address _token, uint256 _amount);
 }
