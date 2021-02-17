@@ -17,12 +17,12 @@ const SECONDS_IN_DAY = 86400
 contract('CrosschainLoans', async () => {
 
     const accounts = [
-        { publicKey: '0x0ca393e41D69CFDEF6ac138394D294f2D97167bC', privateKey: 'c0e5c1be0d1c967c2018b94a302ae347f4e63f7947cbbf8001d642c6e28f105f' },
-        { publicKey: '0x4C13192230be1f88550248c296A7d0977eA65aFF', privateKey: '275937d9c5de1495a76cc104009a8068121e56b828160d54e8ea7ec1bc68014f' },
-        { publicKey: '0xc61b570384C4e2cCbF28bcf603f853F5A10be574', privateKey: '815d05fb255d6f4b9f4e8298e49f97cf8434ffa1fc3c54edc28456b6d2bce704' },
-        { publicKey: '0x04909F374465E5846EB762f2b59044A28FB614c1', privateKey: '7465173f9e93d9d2cb6bebe944dba1ac5b45dd727310a4eb8a302222bd20cfca' },
-        { publicKey: '0x92C20CF90703d138eB249406A0440bE959EE5046', privateKey: '6a95411904550561a446275edf26e07517851765593f0fe15663d241df21c0a2' },
-        { publicKey: '0x1FF0F3f023345F33e12301D14e7Fe0b46Ce578e0', privateKey: '399ae484428ae760d821d3c98de876b69ce4b555145f4efe3c20dba4c542b796' },
+        { publicKey: '0x29Cc0bD6E4E6C515b32eCa150bebc2acFDA743c0', privateKey: '0x62c50cbf4c47d1eb9f36368fa554de938cf7edf10ec42e80a1e74a693cab9adf' },
+        { publicKey: '0xe3f7d3C57F60751Aa7B8579A61a1491F92cA30A4', privateKey: '0x83f25920da546f0829606772722adcf1aebe82343ebb9cc4421f53076808b02f' },
+        { publicKey: '0xd99F52501691F5b23c42e048fB18639844509092', privateKey: '0xd36b3d2baab0598325ee08190302d9158aa547a858f6e3346c7739e8d9d4c440' },
+        { publicKey: '0x6b97d0bA95CbeE9f182Ab7070D6878c485d3526a', privateKey: '0xfb9d8c66eba3a98fb87056df79b63f60dbe1cb85a83884fc8bae95231293eb79' },
+        { publicKey: '0xB9D3984Bd4AaaD6f629357Dfb5c54AAD3059A72A', privateKey: '0x72cf5b0a6d25d399b27ff8219277b23548a776f1a1b82071c9647eb0c5e6f0d1' },
+        { publicKey: '0x041D02937C518a1Fefd5c64Df44D2f14cB3A9F36', privateKey: '0xec6829099cda3623da4ca717c628d4346788e3743a2fa4f3923e930d2d9cabf0' },
     ]
 
     // accounts
@@ -64,6 +64,7 @@ contract('CrosschainLoans', async () => {
 
         // Deploy Second Token
         token_2 = await DAI.new({ from: owner })
+
 
         // Deploy Loans Contract
         crosschainLoans = await CrosschainLoans.new({ from: owner })
