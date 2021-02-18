@@ -1,5 +1,9 @@
 const truffleAssert = require('truffle-assertions')
 const CrosschainLoansCake = artifacts.require('./CrosschainLoansCake.sol')
+const { assert } = require('chai')
+const Web3 = require('web3')
+const HTTP_PROVIDER = 'http://localhost:7545'
+const helper = require('../utils/utils')
 
 contract('CrosschainLoansCake', async (accounts) => {
 
@@ -25,8 +29,7 @@ contract('CrosschainLoansCake', async (accounts) => {
         })
 
         it('if the referrer have the same account of sender, new referral event will not be issued', async () => {
-            const event = await crosschainLoansCake.saveReferrer(account1);
-            truffleAssert.eventNotEmitted(event, "NewReferral", (ev)=>true)
+            await truffleAssert.reverts(crosschainLoansCake.saveReferrer(account1), "Referrer/referrer-is-referral", "Referrer cannot be its referral")
         })
     })
 
