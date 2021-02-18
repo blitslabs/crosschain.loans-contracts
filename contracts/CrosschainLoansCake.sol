@@ -318,7 +318,7 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
         loans[_loanId].secretB1 = _secretB1;
 
         // Referal Fees
-        address referrer = getReferrer(msg.sender);
+        address referrer = getReferrer(loans[_loanId].lender);
         uint256 repayment =
             loans[_loanId].principal.add(loans[_loanId].interest);
 
