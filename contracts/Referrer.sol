@@ -7,6 +7,9 @@ contract Referrer {
     mapping(address => uint256) public totalReferrals;
 
     function saveReferrer(address _referrer) public {
+        require(
+            msg.sender!=_referrer,
+                "Referrer/referrer-is-referral");
         if (_referrer != address(0) && referrers[msg.sender] != _referrer) {
             // Set Referrer
             referrers[msg.sender] = _referrer;
