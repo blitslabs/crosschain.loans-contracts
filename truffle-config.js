@@ -8,6 +8,8 @@ const harmony_provider = process.env.ONE_HTTP_PROVIDER
 const harmony_private_key = process.env.ONE_PRIVATE_KEY
 const harmony_mnemonic = process.env.ONE_MNEMONIC
 
+const binance_provider = process.env.BINANCE_HTTP_PROVIDER
+
 module.exports = {
   /**
    * Networks define how you connect to your ethereum client and let you set the
@@ -45,13 +47,21 @@ module.exports = {
       gasPrice: 109000000000,
       confirmations: 0,
       timeoutBlocks: 200,
-      skipDryRun: false,  
+      skipDryRun: false,
       provider: new HDWalletProvider(eth_private_key, eth_provider)
     },
     rinkeby: {
       network_id: 4,
       gas: 7897368,
       provider: new HDWalletProvider(eth_private_key, eth_provider)
+    },
+    binance: {
+      network_id: 56,
+      provider: new HDWalletProvider(eth_private_key, binance_provider)
+    },
+    binance_test: {
+      network_id: 97,
+      provider: new HDWalletProvider(eth_private_key, binance_provider)
     },
     one: {
       network_id: "1",
@@ -123,11 +133,11 @@ module.exports = {
       version: "0.6.2",    // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       settings: {          // See the solidity docs for advice about optimization and evmVersion
-       optimizer: {
-         enabled: true,
-         runs: 200
-       },
-      //  evmVersion: "byzantium"
+        optimizer: {
+          enabled: true,
+          runs: 200
+        },
+        //  evmVersion: "byzantium"
       }
     },
   },
