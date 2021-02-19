@@ -15,13 +15,13 @@ contract('CrosschainLoansCake', async (accounts) => {
     const owner = accounts[0];
 
     const lender = accounts[1];
-    const lenderPrivateKey = "0xb08933253badc5452ed96e23911286b9862a36c95abee1b7dedbda75085b4276";
+    const lenderPrivateKey = "0x9ee5d3825646335f0cd40261ee81d9b7ed44c0f8e9136ef3b1a99c4a07cea2e5";
 
     const lenderAuto = accounts[2];
-    const lenderAutoPrivateKey = "0x88db5611f54f552969c443edcaa502fdad08cf9c90b08c6b15d45b2665bdda0e";
+    const lenderAutoPrivateKey = "0xf56d7713d4490a872672c03cd289371dc3b77470ff4b5c8af2ae0ab926d3342c";
 
     const borrower = accounts[3];
-    const borrowerPrivateKey = "0x44aee4ac87beb07600a4661f6dd8d82f3be908643e76f0fd5d32c6c4c9c0689f";
+    const borrowerPrivateKey = "0x895b7047e401f87385237fe63b8f7f87a5db140c904ba30f5985b58a4aa91833";
 
     const aCoinLender = accounts[4]
 
@@ -172,7 +172,7 @@ contract('CrosschainLoansCake', async (accounts) => {
                 principal,
                 token.address,
                 aCoinLender,
-                account1,
+                accounts[5],
                 { from: lender }
             )
 
@@ -193,7 +193,6 @@ contract('CrosschainLoansCake', async (accounts) => {
             await token.transfer(borrower, interest, { from: owner })
             await token.approve(crosschainLoansCake.address, '1000000000000000000000000', { from: borrower })
             await crosschainLoansCake.payback('1', { from: borrower })
-            await crosschainLoansCake.saveReferrer(accounts[5]);
         })
 
         afterEach(async () => {
