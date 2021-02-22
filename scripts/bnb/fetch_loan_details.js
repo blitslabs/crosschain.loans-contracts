@@ -15,7 +15,7 @@ const fetchLoan = async (loanId) => {
 }
 
 const start = async () => {
-    const loanId = '1'
+    const loanId = '15'
     const response = await fetchLoan(loanId)
     console.log(response)
 }
