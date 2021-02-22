@@ -2,10 +2,10 @@ pragma solidity ^0.6.0;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./AssetTypes.sol";
-import "./CakeFarms.sol";
+import "./PoolProxyManager.sol";
 import "./Referrer.sol";
 
-contract CrosschainLoansCake is CakeFarms, Referrer {
+contract CrosschainLoansCake is PoolProxyManager, Referrer {
     using SafeMath for uint256;
 
     // --- Loans Data ---
@@ -29,13 +29,13 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
         // Actors
         address payable borrower;
         address payable lender;
-        address lenderAuto;
+
         // Lender's aCoin address
         address aCoinLenderAddress;
         // Hashes
         bytes32 secretHashA1;
         bytes32 secretHashB1;
-        bytes32 secretHashAutoB1;
+        
         // Secrets
         bytes32 secretA1;
         bytes32 secretB1;
@@ -62,23 +62,19 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
     }
 
     /**
-     * @notice Create a loan offer
-     * @param _lenderAuto Address of auto lender
-     * @param _secretHashB1 Hash of the secret B1
-     * @param _secretHashAutoB1 Hash fo the secret B1 of auto lender
+     * @notice Create a loan offer     
+     * @param _secretHashB1 Hash of the secret B1     
      * @param _principal Principal of the loan
      * @param _contractAddress The contract address of the ERC20 token
      */
-    function createLoan(
-        // actors
-        address _lenderAuto,
+    function createLoan(       
         // secret hashes
-        bytes32 _secretHashB1,
-        bytes32 _secretHashAutoB1,
+        bytes32 _secretHashB1,       
         // loan details
         uint256 _principal,
         address _contractAddress,
-        address _aCoinLenderAddress
+        address _aCoinLenderAddress,
+        uint256 _pid
     ) public contractIsEnabled returns (uint256 loanId) {
         require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
         require(
@@ -104,7 +100,7 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
         // Get token farm pid
         if (masterChefEnabled && isFarmEnabled(_contractAddress) == true) {
             // Deposit principal into farm
-            addPoolBalance(getFarmPID(_contractAddress), _principal);
+            depositToPool(msg.sender, _principal, _contractAddress);
         } else {
             // Transfer Token
             require(
@@ -119,12 +115,10 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
         // Add Loan to mapping
         loans[loanIdCounter] = Loan({ // Actors
             borrower: address(0),
-            lender: msg.sender,
-            lenderAuto: _lenderAuto,
+            lender: msg.sender,            
             aCoinLenderAddress: _aCoinLenderAddress,
             secretHashA1: "",
-            secretHashB1: _secretHashB1,
-            secretHashAutoB1: _secretHashAutoB1,
+            secretHashB1: _secretHashB1,            
             secretA1: "",
             secretB1: "",
             secretAutoB1: "", // Expiration dates
@@ -156,34 +150,30 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
     }
 
     /**
-     * @notice Create a loan offer
-     * @param _lenderAuto Address of auto lender
-     * @param _secretHashB1 Hash of the secret B1
-     * @param _secretHashAutoB1 Hash fo the secret B1 of auto lender
+     * @notice Create a loan offer     
+     * @param _secretHashB1 Hash of the secret B1    
      * @param _principal Principal of the loan
      * @param _contractAddress The contract address of the ERC20 token
      * @param _referrer Lender's referrer
      */
     function createLoan(
-        // actors
-        address _lenderAuto,
+        // actors        
         // secret hashes
-        bytes32 _secretHashB1,
-        bytes32 _secretHashAutoB1,
+        bytes32 _secretHashB1,        
         // loan details
         uint256 _principal,
         address _contractAddress,
         address _aCoinLenderAddress,
+        uint256 _pid,
         address _referrer
     ) public contractIsEnabled returns (uint256 loanId) {
         saveReferrer(_referrer);
-        loanId = createLoan(
-            _lenderAuto,
-            _secretHashB1,
-            _secretHashAutoB1,
+        loanId = createLoan(            
+            _secretHashB1,            
             _principal,
             _contractAddress,
-            _aCoinLenderAddress
+            _aCoinLenderAddress,
+            _pid
         );
     }
 
@@ -203,8 +193,7 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
             "CrosschainLoans/loan-not-funded"
         );
         require(
-            msg.sender == loans[_loanId].lender ||
-                msg.sender == loans[_loanId].lenderAuto,
+            msg.sender == loans[_loanId].lender,
             "CrosschainLoans/account-not-authorized"
         );
         require(_borrower != address(0), "CrosschainLoans/invalid-borrower");
@@ -300,9 +289,7 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
     {
         require(
             sha256(abi.encodePacked(_secretB1)) ==
-                loans[_loanId].secretHashB1 ||
-                sha256(abi.encodePacked(_secretB1)) ==
-                loans[_loanId].secretHashAutoB1,
+                loans[_loanId].secretHashB1,
             "CrosschainLoans/invalid-secret-B1"
         );
         require(
@@ -362,9 +349,7 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
     ) public contractIsEnabled {
         require(
             sha256(abi.encodePacked(_secretB1)) ==
-                loans[_loanId].secretHashB1 ||
-                sha256(abi.encodePacked(_secretB1)) ==
-                loans[_loanId].secretHashAutoB1,
+                loans[_loanId].secretHashB1,
             "CrosschainLoans/invalid-secret-B1"
         );
         // require(now <= loans[_loanId].acceptExpiration,"CrosschainLoans/accept-period-expired");
@@ -390,17 +375,19 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
             masterChefEnabled &&
             isFarmEnabled(loans[_loanId].contractAddress) == true
         ) {
-            payCakeRewards(
+            withdrawFromPool(
+                loans[_loanId].lender,
                 principal,
                 loans[_loanId].contractAddress,
                 loans[_loanId].lender
             );
+        } else {
+            require(
+                loans[_loanId].token.transfer(loans[_loanId].lender, principal),
+                "CrosschainLoans/token-refund-failed"
+            );
         }
 
-        require(
-            loans[_loanId].token.transfer(loans[_loanId].lender, principal),
-            "CrosschainLoans/token-refund-failed"
-        );
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }
 
@@ -484,9 +471,9 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
         public
         view
         returns (
-            address[3] memory actors,
-            bytes32[3] memory secretHashes,
-            bytes32[3] memory secrets,
+            address[2] memory actors,
+            bytes32[2] memory secretHashes,
+            bytes32[2] memory secrets,
             uint256[2] memory expirations,
             uint256[2] memory details,
             address aCoinLenderAddress,
@@ -496,18 +483,15 @@ contract CrosschainLoansCake is CakeFarms, Referrer {
     {
         actors = [
             loans[_loanId].borrower,
-            loans[_loanId].lender,
-            loans[_loanId].lenderAuto
+            loans[_loanId].lender            
         ];
         secretHashes = [
             loans[_loanId].secretHashA1,
-            loans[_loanId].secretHashB1,
-            loans[_loanId].secretHashAutoB1
+            loans[_loanId].secretHashB1            
         ];
         secrets = [
             loans[_loanId].secretA1,
-            loans[_loanId].secretB1,
-            loans[_loanId].secretAutoB1
+            loans[_loanId].secretB1
         ];
         expirations = [
             loans[_loanId].loanExpiration,
