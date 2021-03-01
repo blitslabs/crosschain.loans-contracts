@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.5.16;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
@@ -351,7 +351,7 @@ contract CollateralLockV1 is Administration {
         public
         view
         returns (
-            address[2] memory actors,
+            address payable[2] memory actors,
             bytes32[2] memory secretHashes,
             bytes32[2] memory secrets,
             uint256[3] memory expirations,
@@ -360,8 +360,8 @@ contract CollateralLockV1 is Administration {
         )
     {
         actors = [
-            address(loans[_loanId].borrower),
-            address(loans[_loanId].lender)
+            loans[_loanId].borrower,
+            loans[_loanId].lender
         ];
         secretHashes = [
             loans[_loanId].secretHashA1,

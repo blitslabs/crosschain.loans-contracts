@@ -1,4 +1,4 @@
-pragma solidity ^0.6.2;
+pragma solidity ^0.5.16;
 
 import "@chainlink/contracts/src/v0.4/interfaces/AggregatorInterface.sol";
 

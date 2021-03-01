@@ -1,11 +1,10 @@
 pragma solidity ^0.5.16;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./AssetTypes.sol";
-import "./PoolProxyManager.sol";
+import "./MoneyMarketManager.sol";
 import "./Referrer.sol";
 
-contract CrosschainLoansCake is PoolProxyManager, Referrer {
+contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
     using SafeMath for uint256;
 
     // --- Loans Data ---
@@ -95,17 +94,16 @@ contract CrosschainLoansCake is PoolProxyManager, Referrer {
 
         ERC20 token = ERC20(_contractAddress);
 
+        require(
+            token.transferFrom(msg.sender, address(this), _principal),
+            "CrosschainLoans/token-transfer-failed"
+        );
+
         // Get token farm pid
-        if (masterChefEnabled && isFarmEnabled(_contractAddress) == true) {
-            // Deposit principal into farm
-            depositToPool(msg.sender, _principal, _contractAddress);
-        } else {
-            // Transfer Token
-            require(
-                token.transferFrom(msg.sender, address(this), _principal),
-                "CrosschainLoans/token-transfer-failed"
-            );
-        }
+        if (moneyMarketEnabled == true && isMarketEnabled(_contractAddress) == true) {
+            // Deposit principal into money market
+            // depositMoney(msg.sender, _principal, _contractAddress);
+        } 
 
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
@@ -244,16 +242,16 @@ contract CrosschainLoansCake is PoolProxyManager, Referrer {
         loans[_loanId].secretA1 = _secretA1;
 
         // Get token farm pid
-        if (
-            masterChefEnabled &&
-            isFarmEnabled(loans[_loanId].contractAddress) == true
-        ) {
-            // payCakeRewards(
-            //     loans[_loanId].principal,
-            //     loans[_loanId].contractAddress,
-            //     loans[_loanId].lender
-            // );
-        }
+        // if (
+        //     masterChefEnabled &&
+        //     isFarmEnabled(loans[_loanId].contractAddress) == true
+        // ) {
+        //     depositMoney(
+        //         loans[_loanId].principal,
+        //         loans[_loanId].contractAddress,
+        //         loans[_loanId].lender
+        //     );
+        // }
 
         // Transfer principal to Borrower
         loans[_loanId].token.transfer(
@@ -367,22 +365,22 @@ contract CrosschainLoansCake is PoolProxyManager, Referrer {
             .sub(loans[_loanId].principal);
 
         // Get token farm PID
-        if (
-            masterChefEnabled &&
-            isFarmEnabled(loans[_loanId].contractAddress) == true
-        ) {
-            withdrawFromPool(
-                loans[_loanId].lender,
-                principal,
-                loans[_loanId].contractAddress,
-                loans[_loanId].lender
-            );
-        } else {
-            require(
-                loans[_loanId].token.transfer(loans[_loanId].lender, principal),
-                "CrosschainLoans/token-refund-failed"
-            );
-        }
+        // if (
+        //     masterChefEnabled &&
+        //     isFarmEnabled(loans[_loanId].contractAddress) == true
+        // ) {
+        //     withdrawFromPool(
+        //         loans[_loanId].lender,
+        //         principal,
+        //         loans[_loanId].contractAddress,
+        //         loans[_loanId].lender
+        //     );
+        // } else {
+        //     require(
+        //         loans[_loanId].token.transfer(loans[_loanId].lender, principal),
+        //         "CrosschainLoans/token-refund-failed"
+        //     );
+        // }
 
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }

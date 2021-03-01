@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.5.16;
 import "./interfaces/IBEP20.sol";
 
 interface PoolManager {
@@ -20,7 +20,7 @@ contract PoolProxy {
         address _owner,
         address _poolManager,
         address _rewardToken
-    ) internal onlyOwner {
+    ) public onlyOwner {
         owner = _owner;
         poolManager = PoolManager(_poolManager);
     }
@@ -32,7 +32,7 @@ contract PoolProxy {
     ) public onlyOwner {
         // Approve Allowance
         IBEP20 token = IBEP20(_token);
-        token.approve(poolManager, _amount);
+        token.approve(address(poolManager), _amount);
 
         // Deposit funds
         poolManager.deposit(_pid, _amount);

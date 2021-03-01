@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.5.16;
 interface IBEP20 {
     /**
      * @dev Returns the amount of tokens in existence.

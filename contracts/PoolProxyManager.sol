@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.5.16;
 import "./AssetTypes.sol";
 import "./interfaces/IBEP20.sol";
 import "./PoolProxy.sol";
@@ -18,7 +18,7 @@ contract PoolProxyManager is AssetTypes {
     mapping(address => address) public accountProxies;
 
     function setMasterChef(address _masterChef) public isAuthorized {
-        require(_masterChef != address(0), "CakeFarms/invalid-chef-address");
+        require(_masterChef != address(0), "PoolProxyManager/invalid-chef-address");
         masterChef = MasterChef(_masterChef);
     }
 
@@ -57,10 +57,10 @@ contract PoolProxyManager is AssetTypes {
         // Check if account has PoolProxy
 
         // Create PoolProxy
-        PoolProxy poolProxy = new PoolProxy(address(this), address(masterChef));
+        PoolProxy poolProxy = new PoolProxy(address(this), address(masterChef), address(pancake));
 
         // Save PoolProxy
-        accountProxies[_from] = poolProxy;
+        accountProxies[_from] = address(poolProxy);
 
         // Send Funds to address(this) contract
         IBEP20 token = IBEP20(_token);
