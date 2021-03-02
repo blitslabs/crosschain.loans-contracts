@@ -60,7 +60,7 @@ const approveAllowance = async (
 const start = async () => {
 
     const tokenContractAddress = '0x8301f2213c0eed49a7e28ae4c3e91722919b8b47'
-    const spender = '0x9dAD74c6dde6749b8C8EcC6c06aD710CA5dE97db'
+    const spender = ETH_LOANS_CONTRACT
     const amount = '100000'
     const gasPrice = '150000000000'
     const gasLimit = '200000'

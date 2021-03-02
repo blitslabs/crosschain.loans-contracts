@@ -3,7 +3,11 @@ import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./AssetTypes.sol";
 
-contract CrosschainLoans is AssetTypes {
+/**
+ * @title CrosschainLoansV1 
+ * @notice Crosschain Loans with AutoLender actor
+ */
+contract CrosschainLoansV1 is AssetTypes {
     using SafeMath for uint256;
 
     // --- Loans Data ---

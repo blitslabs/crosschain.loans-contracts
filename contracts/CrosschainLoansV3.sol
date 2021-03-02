@@ -2,14 +2,14 @@ pragma solidity ^0.5.16;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/ReentrancyGuard.sol";
-import "./MoneyMarketManager.sol";
+import "./AssetTypes.sol";
 import "./Referrer.sol";
 
-contract CrosschainLoansMoneyMarket is
-    ReentrancyGuard,
-    MoneyMarketManager,
-    Referrer
-{
+/**
+ * @title CrosschainLoansV3
+ * @notice Crosschain Loans with referrals
+ */
+contract CrosschainLoansV3 is ReentrancyGuard, AssetTypes, Referrer {
     using SafeMath for uint256;
 
     // --- Loans Data ---
@@ -67,6 +67,7 @@ contract CrosschainLoansMoneyMarket is
      * @param _secretHashB1 Hash of the secret B1
      * @param _principal Principal of the loan
      * @param _contractAddress The contract address of the ERC20 token
+     * @param _aCoinLenderAddress The address of the Lender on ACoin's blockchain
      */
     function createLoan(
         // secret hashes
@@ -95,8 +96,15 @@ contract CrosschainLoansMoneyMarket is
             "CrosschainLoans/invalid-principal-range"
         );
 
+        // Check allowance
         ERC20 token = ERC20(_contractAddress);
+        uint256 allowance = token.allowance(msg.sender, address(this));
+        require(
+            allowance >= _principal,
+            "CrosschainLoans/insufficient-token-allowance"
+        );
 
+        // Transfer Token
         require(
             token.transferFrom(msg.sender, address(this), _principal),
             "CrosschainLoans/token-transfer-failed"
@@ -105,24 +113,16 @@ contract CrosschainLoansMoneyMarket is
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
 
-        // Deposit principal into money market
-        if (moneyMarkets[_contractAddress].isEnabled) {
-            require(
-                depositMoney(loanIdCounter, _principal, _contractAddress),
-                "CrosschainLoans/money-market-mint-failed"
-            );
-        }
-
         // Add Loan to mapping
         loans[loanIdCounter] = Loan({ // Actors
             borrower: address(0),
             lender: msg.sender,
-            aCoinLenderAddress: _aCoinLenderAddress,
+            aCoinLenderAddress: _aCoinLenderAddress, // Secret Hashes
             secretHashA1: "",
             secretHashB1: _secretHashB1,
             secretA1: "",
-            secretB1: "",
-            loanExpiration: 0, // Expiration dates
+            secretB1: "", // Expiration dates
+            loanExpiration: 0,
             acceptExpiration: 0,
             createdAt: now,
             principal: _principal,
@@ -244,20 +244,6 @@ contract CrosschainLoansMoneyMarket is
         loans[_loanId].state = State.Withdrawn;
         loans[_loanId].secretA1 = _secretA1;
 
-        // Withdraw principal from money market
-        if (moneyMarkets[loans[_loanId].contractAddress].isEnabled) {
-            require(
-                withdrawMoney(
-                    _loanId,
-                    loans[_loanId].lender,
-                    loans[_loanId].principal,
-                    loans[_loanId].contractAddress
-                ),
-                "CrosschainLoans/money-market-redeem-failed"
-            );
-        }
-
-        // Transfer principal to Borrower
         loans[_loanId].token.transfer(
             loans[_loanId].borrower,
             loans[_loanId].principal
@@ -304,7 +290,7 @@ contract CrosschainLoansMoneyMarket is
         loans[_loanId].state = State.Closed;
         loans[_loanId].secretB1 = _secretB1;
 
-        // Referal Fees
+        // Referral Fees
         address referrer = getReferrer(loans[_loanId].lender);
         uint256 repayment =
             loans[_loanId].principal.add(loans[_loanId].interest);
@@ -319,7 +305,6 @@ contract CrosschainLoansMoneyMarket is
                 )
                     .div(1e18);
             repayment = repayment.sub(referralFees);
-
             require(
                 loans[_loanId].token.transfer(referrer, referralFees),
                 "CrosschainLoans/ref-fees-transfer-failed"
@@ -331,10 +316,12 @@ contract CrosschainLoansMoneyMarket is
                 referralFees
             );
         }
+
         require(
             loans[_loanId].token.transfer(loans[_loanId].lender, repayment),
             "CrosschainLoans/token-transfer-failed"
         );
+
         emit LoanRepaymentAccepted(_loanId, repayment, loans[_loanId].state);
     }
 
@@ -357,6 +344,10 @@ contract CrosschainLoansMoneyMarket is
                 loans[_loanId].state == State.Approved,
             "CrosschainLoans/principal-withdrawn"
         );
+        loans[_loanId].state = State.Canceled;
+        uint256 principal = loans[_loanId].principal;
+        loans[_loanId].principal = 0;
+        loans[_loanId].secretB1 = _secretB1;
 
         // Decrease supply
         address contractAddress = loans[_loanId].contractAddress;
@@ -364,29 +355,10 @@ contract CrosschainLoansMoneyMarket is
             .supply
             .sub(loans[_loanId].principal);
 
-        uint256 principal = loans[_loanId].principal;
-        loans[_loanId].state = State.Canceled;
-        loans[_loanId].principal = 0;
-        loans[_loanId].secretB1 = _secretB1;
-
-        // Withdraw principal from money market
-        if (moneyMarkets[loans[_loanId].contractAddress].isEnabled) {
-            require(
-                withdrawMoney(
-                    _loanId,
-                    loans[_loanId].lender,
-                    principal,
-                    loans[_loanId].contractAddress
-                ),
-                "CrosschainLoans/money-market-redeem-failed"
-            );
-        }
-
         require(
             loans[_loanId].token.transfer(loans[_loanId].lender, principal),
             "CrosschainLoans/token-refund-failed"
         );
-
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }
 

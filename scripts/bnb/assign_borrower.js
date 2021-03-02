@@ -61,7 +61,7 @@ const assignBorrower = async (
 const start = async () => {
     const secretHashA1 = '0x2d44efc45da1e6be2b7529830a977854d1ab012037246cec12baf376d1022c24'
     const secretA1 = '0xcdbeb5a1450d875832f17af228736974883e6cbdb66ac766dc086b2189b8a58f'
-    const loanId = '5'
+    const loanId = '1'
     const borrower = '0x8b9Ca4553612F7038434A322d7B169E7309A88f2'
     const gasPrice = '100'
     const gasLimit = '3000000'

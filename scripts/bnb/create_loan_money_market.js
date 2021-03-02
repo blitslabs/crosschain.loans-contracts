@@ -73,7 +73,8 @@ const createLoanMoneyMarket = async (
 }
 
 const start = async () => {
-    const secretHashB1 = '0xf8232c8d6108b20a2a0e8b0b66dbb70d2fd5203012f17567583a9a6cd3a6c702'
+    const secretHashB1 = '0x2d44efc45da1e6be2b7529830a977854d1ab012037246cec12baf376d1022c24'
+    const secretB1 = '0xcdbeb5a1450d875832f17af228736974883e6cbdb66ac766dc086b2189b8a58f'
     const principal = '100'
     const tokenContractAddress = '0x8301F2213c0eeD49a7E28Ae4c3e91722919B8B47'
     const aCoinLenderAddress = '0x80a355E4E0dA302c2850d6f6fBe1F8c66363a286'
