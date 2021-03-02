@@ -1,10 +1,15 @@
 pragma solidity ^0.5.16;
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/utils/ReentrancyGuard.sol";
 import "./MoneyMarketManager.sol";
 import "./Referrer.sol";
 
-contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
+contract CrosschainLoansMoneyMarket is
+    ReentrancyGuard,
+    MoneyMarketManager,
+    Referrer
+{
     using SafeMath for uint256;
 
     // --- Loans Data ---
@@ -70,9 +75,8 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
         // loan details
         uint256 _principal,
         address _contractAddress,
-        address _aCoinLenderAddress,
-        uint256 _pid
-    ) public contractIsEnabled returns (uint256 loanId) {
+        address _aCoinLenderAddress
+    ) public contractIsEnabled nonReentrant returns (uint256 loanId) {
         require(_principal > 0, "CrosschainLoans/invalid-principal-amount");
         require(
             _contractAddress != address(0),
@@ -99,14 +103,16 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
             "CrosschainLoans/token-transfer-failed"
         );
 
-        // Get token farm pid
-        if (moneyMarketEnabled == true && isMarketEnabled(_contractAddress) == true) {
-            // Deposit principal into money market
-            // depositMoney(msg.sender, _principal, _contractAddress);
-        } 
-
         // Increment loanIdCounter
         loanIdCounter = loanIdCounter + 1;
+
+        // Deposit principal into money market
+        if (moneyMarkets[_contractAddress].isEnabled) {
+            require(
+                depositMoney(loanIdCounter, _principal, _contractAddress),
+                "CrosschainLoans/money-market-mint-failed"
+            );
+        }
 
         // Add Loan to mapping
         loans[loanIdCounter] = Loan({ // Actors
@@ -152,7 +158,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
      * @param _contractAddress The contract address of the ERC20 token
      * @param _referrer Lender's referrer
      */
-    function createLoan(
+    function createLoanRef(
         // actors
         // secret hashes
         bytes32 _secretHashB1,
@@ -160,7 +166,6 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
         uint256 _principal,
         address _contractAddress,
         address _aCoinLenderAddress,
-        uint256 _pid,
         address _referrer
     ) public contractIsEnabled returns (uint256 loanId) {
         saveReferrer(_referrer);
@@ -168,8 +173,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
             _secretHashB1,
             _principal,
             _contractAddress,
-            _aCoinLenderAddress,
-            _pid
+            _aCoinLenderAddress
         );
     }
 
@@ -183,7 +187,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
         uint256 _loanId,
         address payable _borrower,
         bytes32 _secretHashA1
-    ) public contractIsEnabled {
+    ) public contractIsEnabled nonReentrant {
         require(
             loans[_loanId].state == State.Funded,
             "CrosschainLoans/loan-not-funded"
@@ -224,6 +228,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
     function withdraw(uint256 _loanId, bytes32 _secretA1)
         public
         contractIsEnabled
+        nonReentrant
     {
         require(
             loans[_loanId].state == State.Approved,
@@ -241,17 +246,18 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
         loans[_loanId].state = State.Withdrawn;
         loans[_loanId].secretA1 = _secretA1;
 
-        // Get token farm pid
-        // if (
-        //     masterChefEnabled &&
-        //     isFarmEnabled(loans[_loanId].contractAddress) == true
-        // ) {
-        //     depositMoney(
-        //         loans[_loanId].principal,
-        //         loans[_loanId].contractAddress,
-        //         loans[_loanId].lender
-        //     );
-        // }
+        // Withdraw principal from money market
+        if (moneyMarkets[loans[_loanId].contractAddress].isEnabled) {
+            require(
+                withdrawMoney(
+                    _loanId,
+                    loans[_loanId].lender,
+                    loans[_loanId].principal,
+                    loans[_loanId].contractAddress
+                ),
+                "CrosschainLoans/money-market-redeem-failed"
+            );
+        }
 
         // Transfer principal to Borrower
         loans[_loanId].token.transfer(
@@ -282,6 +288,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
     function acceptRepayment(uint256 _loanId, bytes32 _secretB1)
         public
         contractIsEnabled
+        nonReentrant
     {
         require(
             sha256(abi.encodePacked(_secretB1)) == loans[_loanId].secretHashB1,
@@ -341,7 +348,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
     function cancelLoanBeforePrincipalWithdraw(
         uint256 _loanId,
         bytes32 _secretB1
-    ) public contractIsEnabled {
+    ) public contractIsEnabled nonReentrant {
         require(
             sha256(abi.encodePacked(_secretB1)) == loans[_loanId].secretHashB1,
             "CrosschainLoans/invalid-secret-B1"
@@ -364,23 +371,23 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
             .supply
             .sub(loans[_loanId].principal);
 
-        // Get token farm PID
-        // if (
-        //     masterChefEnabled &&
-        //     isFarmEnabled(loans[_loanId].contractAddress) == true
-        // ) {
-        //     withdrawFromPool(
-        //         loans[_loanId].lender,
-        //         principal,
-        //         loans[_loanId].contractAddress,
-        //         loans[_loanId].lender
-        //     );
-        // } else {
-        //     require(
-        //         loans[_loanId].token.transfer(loans[_loanId].lender, principal),
-        //         "CrosschainLoans/token-refund-failed"
-        //     );
-        // }
+        // Withdraw principal from money market
+        if (moneyMarkets[loans[_loanId].contractAddress].isEnabled) {
+            require(
+                withdrawMoney(
+                    _loanId,
+                    loans[_loanId].lender,
+                    loans[_loanId].principal,
+                    loans[_loanId].contractAddress
+                ),
+                "CrosschainLoans/money-market-redeem-failed"
+            );
+        }
+
+        require(
+            loans[_loanId].token.transfer(loans[_loanId].lender, principal),
+            "CrosschainLoans/token-refund-failed"
+        );
 
         emit CancelLoan(_loanId, _secretB1, loans[_loanId].state);
     }
@@ -389,7 +396,7 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
      * @notice Payback loan's principal and interest
      * @param _loanId The ID of the loan
      */
-    function payback(uint256 _loanId) public contractIsEnabled {
+    function payback(uint256 _loanId) public contractIsEnabled nonReentrant {
         require(
             loans[_loanId].state == State.Withdrawn,
             "CrosschainLoans/invalid-loan-state"
@@ -432,7 +439,11 @@ contract CrosschainLoansMoneyMarket is MoneyMarketManager, Referrer {
      * @notice Refund the payback amount
      * @param _loanId The ID of the loan
      */
-    function refundPayback(uint256 _loanId) public contractIsEnabled {
+    function refundPayback(uint256 _loanId)
+        public
+        contractIsEnabled
+        nonReentrant
+    {
         require(
             now > loans[_loanId].acceptExpiration,
             "CrosschainLoans/accept-period-not-expired"

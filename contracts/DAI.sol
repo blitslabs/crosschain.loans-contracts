@@ -5,6 +5,7 @@ contract DAI is ERC20 {
     uint256 public INITIAL_SUPPLY = 10000000000000000000000000;
     string public name = "DaiToken";
     string public symbol = "DAI";
+    uint8 public decimals = 18;
 
     constructor() public {
         _mint(msg.sender, INITIAL_SUPPLY);

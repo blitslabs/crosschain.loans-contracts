@@ -6,17 +6,18 @@ const {
     ETH_CHAIN_NAME, ETH_PUBLIC_KEY,
     ETH_PRIVATE_KEY, ETH_LOANS_CONTRACT,
 } = process.env
-const LOANS_CONTRACT_ABI = (require('../../build/contracts/CrosschainLoansMoneyMarket.json')).abi
+const CERC20_ABI = (require('../../build/contracts/CErc20.json')).abi
 
-const fetchLoan = async (loanId) => {
+const getUnderlyingToken = async (cToken) => {
     const web3 = new Web3(new Web3.providers.HttpProvider(ETH_HTTP_PROVIDER))
-    const contract = new web3.eth.Contract(LOANS_CONTRACT_ABI, ETH_LOANS_CONTRACT, { from: ETH_PUBLIC_KEY })
-    return await contract.methods.fetchLoan(loanId).call()
+    const contract = new web3.eth.Contract(CERC20_ABI, cToken, { from: ETH_PUBLIC_KEY })
+    return await contract.methods.underlying().call()
 }
 
 const start = async () => {
-    const loanId = '2'
-    const response = await fetchLoan(loanId)
+    const cToken = '0x08e0a5575de71037ae36abfafb516595fe68e5e4'
+   
+    const response = await getUnderlyingToken(cToken)
     console.log(response)
 }
 
