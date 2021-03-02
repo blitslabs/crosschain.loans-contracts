@@ -162,10 +162,11 @@ contract MoneyMarketManager is AssetTypes {
     }
 
     /**
-     * @notice Redeem mmTokens
+     * @notice Approve the allowance between CrosschainLoans and CToken
+     * @param _token The underlying ERC20 token
+     * @param _spender The authorized spender
+     * @param _amount The required allowance amount
      */
-    // function withdraw
-
     function approveAllowance(
         address _token,
         address _spender,
