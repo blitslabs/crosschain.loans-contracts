@@ -239,5 +239,57 @@ describe('END2END', async () => {
             const allowance_1 = await dai.allowance(crosschainLoans.address, cdai.address)
             console.log(allowance_1.toString())
         })
+
+        it('should create a loan and cancel', async () => {
+     
+            // Approve allowance
+            await dai.connect(lender).approve(crosschainLoans.address, toWei('1000', 'ether'))
+            const allowance = await dai.connect(lender).allowance(lender.address, crosschainLoans.address)
+
+            // Lender secretB1 / secretHashB1
+            const lenderLoansCount = await crosschainLoans.userLoansCount(lender.address)
+
+            const secretB1 = sha256(lender.signMessage(`SecretB1. Nonce: ${lenderLoansCount}`))
+            const secretHashB1 = `0x${sha256(secretB1)}`
+
+            // Lender secret / secretHash
+            const borrowerLoansCount = await crosschainLoans.userLoansCount(borrower.address)
+            const secretA1 = sha256(borrower.signMessage(`SecretA1. Nonce: ${borrowerLoansCount}`))
+            const secretHashA1 = `0x${sha256(secretA1)}`
+
+            const principal = toWei('100', 'ether')
+            // console.log(await crosschainLoans.methods)
+
+            // Create Loan
+            await crosschainLoans.connect(lender).createLoan(
+                secretHashB1,
+                principal,
+                dai.address,
+                aCoinLender.address,
+                // borrower.address
+            )
+
+            // Fetch loan
+            const loan = await crosschainLoans.fetchLoan(1)
+            assert.equal(loan.actors[1], lender.address, 'Invalid loan')
+
+            // Check crosschainLoans balance
+            const crosschainLoansBalance = await dai.balanceOf(crosschainLoans.address)
+            assert.equal(crosschainLoansBalance.toString(), 0, 'Invalid crosschainLoans balance')
+
+            // Check cdai balance
+            const cdaiBalance = await cdai.balanceOf(crosschainLoans.address)
+            assert.equal(cdaiBalance.toString(), toWei('100', 'ether'), 'Invalid cdai balance')
+
+            // Assign Borrower and Approve
+            await crosschainLoans.connect(lender).cancelLoanBeforePrincipalWithdraw(
+                '1',
+                `0x${secretB1}`
+            )
+           
+            const lenderBalance = await dai.balanceOf(lender.address)
+            assert.equal(lenderBalance.toString(), toWei('100', 'ether'), 'Invalid lender balance')
+
+        })
     })
 })

@@ -149,12 +149,10 @@ contract MoneyMarketManager is AssetTypes {
 
         uint256 balanceAfter = underlyingToken.balanceOf(address(this));
         require(balanceAfter > balanceBefore, "MoneyMarketManager/math-error");
-        uint256 newPrincipal = balanceAfter.sub(balanceBefore);
-
-        console.log("Yield: %i", newPrincipal);
+        uint256 newPrincipal = balanceAfter.sub(balanceBefore);       
 
         if (newPrincipal > _amount) {
-            uint256 yield = newPrincipal.sub(_amount);
+            uint256 yield = newPrincipal.sub(_amount);            
             underlyingToken.transfer(_lender, yield);
         }
 

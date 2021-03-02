@@ -360,16 +360,16 @@ contract CrosschainLoansMoneyMarket is
             "CrosschainLoans/principal-withdrawn"
         );
 
-        uint256 principal = loans[_loanId].principal;
-        loans[_loanId].state = State.Canceled;
-        loans[_loanId].principal = 0;
-        loans[_loanId].secretB1 = _secretB1;
-
         // Decrease supply
         address contractAddress = loans[_loanId].contractAddress;
         assetTypes[contractAddress].supply = assetTypes[contractAddress]
             .supply
             .sub(loans[_loanId].principal);
+
+        uint256 principal = loans[_loanId].principal;
+        loans[_loanId].state = State.Canceled;
+        loans[_loanId].principal = 0;
+        loans[_loanId].secretB1 = _secretB1;
 
         // Withdraw principal from money market
         if (moneyMarkets[loans[_loanId].contractAddress].isEnabled) {
@@ -377,7 +377,7 @@ contract CrosschainLoansMoneyMarket is
                 withdrawMoney(
                     _loanId,
                     loans[_loanId].lender,
-                    loans[_loanId].principal,
+                    principal,
                     loans[_loanId].contractAddress
                 ),
                 "CrosschainLoans/money-market-redeem-failed"
