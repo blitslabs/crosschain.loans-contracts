@@ -32,7 +32,11 @@ contract MoneyMarketManager is AssetTypes {
      * @param _token The address of the underlying ERC20 token
      * @param _marketAddress The address of the money market
      */
-    function addMoneyMarket(address _token, address _marketAddress) external {
+    function addMoneyMarket(address _token, address _marketAddress)
+        external
+        isAuthorized
+        contractIsEnabled
+    {
         require(
             moneyMarkets[_token].isEnabled == false,
             "MoneyMarketMager/market-already-exists"
@@ -48,7 +52,11 @@ contract MoneyMarketManager is AssetTypes {
      * @param _token The address of the money market underlyng token
      * @param _status The status of the money market
      */
-    function toggleMoneyMarket(address _token, bool _status) external {
+    function toggleMoneyMarket(address _token, bool _status)
+        external
+        isAuthorized
+        contractIsEnabled
+    {
         moneyMarkets[_token].isEnabled = _status;
     }
 
@@ -57,7 +65,11 @@ contract MoneyMarketManager is AssetTypes {
      * @param _token The address of the money market undelying token
      * @param _market The address of the money market
      */
-    function modifyMoneyMarket(address _token, CToken _market) external {
+    function modifyMoneyMarket(address _token, CToken _market)
+        external
+        isAuthorized
+        contractIsEnabled
+    {
         moneyMarkets[_token].market = _market;
     }
 
@@ -161,9 +173,6 @@ contract MoneyMarketManager is AssetTypes {
     ) internal returns (bool) {
         ERC20 erc20 = ERC20(_token);
         uint256 allowance = erc20.allowance(address(this), _spender);
-
-        console.log("Allowance: ", allowance);
-        console.log("Amount: ", _amount);
 
         if (allowance < _amount) {
             erc20.approve(_spender, uint256(-1));
