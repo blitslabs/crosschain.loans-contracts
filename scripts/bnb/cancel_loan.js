@@ -56,7 +56,7 @@ const cancelLoan = async (
 }
 
 const start = async () => {
-    const loanId = '2'
+    const loanId = '1'
     const secretB1 = '0xcdbeb5a1450d875832f17af228736974883e6cbdb66ac766dc086b2189b8a58f'
     const gasPrice = '10'
     const gasLimit = '3000000'

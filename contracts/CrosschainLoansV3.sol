@@ -7,7 +7,7 @@ import "./Referrer.sol";
 
 /**
  * @title CrosschainLoansV3
- * @notice Crosschain Loans with referrals
+ * @notice Crosschain Loans with referrals and without autolender
  */
 contract CrosschainLoansV3 is ReentrancyGuard, AssetTypes, Referrer {
     using SafeMath for uint256;

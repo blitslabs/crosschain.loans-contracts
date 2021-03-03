@@ -27,9 +27,24 @@ module.exports = {
   //   gasPrice: 21
   // },
   networks: {
+    binance_main: {
+      url: 'https://dataseed1.binance.org/',
+      chainId: 56,
+      accounts: [`0x${process.env.ETH_PRIVATE_KEY}`]
+    },  
     binance_test: {
       url: 'https://data-seed-prebsc-1-s2.binance.org:8545/',
       chainId: 97,
+      accounts: [`0x${process.env.ETH_PRIVATE_KEY}`]
+    },    
+    harmony_main: {
+      url: 'https://api.s0.t.hmny.io',
+      chainId: 1666600000,
+      accounts: [`0x${process.env.ETH_PRIVATE_KEY}`]
+    },
+    harmony_test: {
+      url: 'https://api.s0.b.hmny.io',
+      chainId: 1666700000,
       accounts: [`0x${process.env.ETH_PRIVATE_KEY}`]
     },
   },
